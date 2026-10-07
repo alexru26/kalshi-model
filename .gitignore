@@ -1,0 +1,35 @@
+# Third-party agent skills (installed via skills-lock.json into .agents/).
+# Custom project skills live as real directories in .claude/skills/ and are committed.
+# Add one line here for each installed (non-custom) skill linked into .claude/skills/.
+.agents/
+skills-lock.json
+.claude/skills/lavish
+
+# Lavish review pages
+.lavish/
+
+# Local Claude Code settings
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+*:Zone.Identifier
+.vscode/
+.idea/
