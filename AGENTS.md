@@ -4,7 +4,7 @@ Project memory for agents working in this repository.
 
 ## Overview
 
-A CMU 66-146 course project: an agent-based model of one Kalshi binary prediction market. It asks how Kalshi's rules (P(1-P) taker fee rounded up to the cent, maker/taker order book, free cancels) change how fast and how accurately a market absorbs true news, false rumors, and manipulation, compared with a classical fee-free LMSR market.
+An agent-based model of one Kalshi binary prediction market. It asks how Kalshi's rules (P(1-P) taker fee rounded up to the cent, maker/taker order book, free cancels) change how fast and how accurately a market absorbs true news, false rumors, and manipulation, compared with a classical fee-free LMSR market.
 
 `PLAN.md` is the source of truth for design, experiments, and build order (Section 9). Read it before writing code. No code exists yet; when tooling is added, record the build and test commands here.
 
