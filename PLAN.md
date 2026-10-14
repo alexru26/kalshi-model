@@ -10,13 +10,13 @@ Python 3.12 + Mesa 3.x. Sources are listed with one-line summaries in `SOURCES.m
 
 A prediction market turns scattered private guesses into one price: what a contract paying $1 on YES costs. Classical theory (Hayek; Plott & Sunder; Hanson's LMSR) says that price becomes a good probability. Kalshi is a real, regulated version, but its rules differ from the textbook: a central limit order book (CLOB) instead of an automated market maker, a taker fee of `0.07 x C x P x (1 - P)` rounded up to the cent (largest at 50c), no fee on most maker orders, and free cancellation.
 
-We simulate one binary market where the right answer is always known: `P*`, the exact Bayesian posterior given every real clue that any agent holds. Every price is scored against `P*`.
+We simulate one binary market with a known benchmark: `P*`, the exact Bayesian posterior given every real clue that any agent holds. It is the best forecast the market's real information allows, and every price is scored against it.
 
 **Headline question.** How do Kalshi's market rules, the structure of the network that spreads information, and manipulators change the speed and accuracy with which a prediction market absorbs information?
 
 ### Experiments
 
-Every configuration runs on the same 100 seeds, so comparisons are paired run by run. All three experiments share one **default configuration**: Kalshi rules, Holme-Kim network, disinformation ratio 0.25, no manipulator. Predictions are written before running.
+Every configuration runs on the same 100 seeds, so comparisons are paired run by run. All three experiments share one **default configuration**: Kalshi rules, Holme-Kim network, no disinformation, no manipulator. Disinformation is off by default so that E1 and E3 test clean markets. Predictions are written before running.
 
 **E1. Kalshi rules (3 configurations).** AMM (LMSR, no fees) vs. CLOB (no fees, free cancellation) vs. Kalshi (CLOB + Kalshi fees). Free cancellation is on in both CLOBs because every real exchange allows it, so each step changes one thing:
 - AMM to CLOB: what an open order book changes.
@@ -24,8 +24,8 @@ Every configuration runs on the same 100 seeds, so comparisons are paired run by
 - *Predictions:* the fee creates a no-trade band widest at 50c, so prices near 50c react more slowly to small news; fees cut volume much more than accuracy; Kalshi's free maker orders push patient agents to post resting orders, and makers out-earn takers (as Burgi et al. find on real Kalshi data).
 
 **E2. Information spread (8 configurations).** One variable at a time around the default:
-- *Network sweep:* 5 networks at disinformation ratio 0.25 (Section 2.4).
-- *Disinformation sweep:* ratios 0, 0.1, 0.25, 0.5 on Holme-Kim.
+- *Network sweep:* 5 networks at disinformation ratio 0.1 (Section 2.4).
+- *Disinformation sweep:* ratios 0, 0.05, 0.1, 0.2 on Holme-Kim, i.e. exactly 0, 1, 2, 4 fakes added to the 20 real news clues. A real clue pushes toward the truth by `2q - 1 = 0.06` on average and a fake pushes 1 against it, so at ratio 0.06 the news stream carries no net signal: 0.05 sits just below that break-even point, and 0.1 and 0.2 go past it as stress tests.
 - *Predictions:* well-connected agents trade earlier and earn more (Ozsoylev et al. 2014); echo chambers sustain the largest disinformation distortion; distortion grows faster than the ratio, because agents who follow the price amplify a rumor once it moves the price.
 
 **E3. Manipulation (3 configurations).** Kalshi default with an honest twin vs. pump-and-dump manipulator vs. spoofing manipulator (Section 2.3).
@@ -57,12 +57,12 @@ Agents have no type labels. Each agent is a vector of traits drawn at setup, and
 1. **Believes.** In log-odds:
    ```
    logit(b) = (1 - w_market) * (L_own + w_hearsay * L_heard) + w_market * logit(mid) + w_depth * imbalance + noise * z
-   w_market = market_trust / (market_trust + n_eff),   n_eff = n_own + w_hearsay * n_heard
+   w_market = market_trust / (market_trust + n_eff + eps),   n_eff = n_own + w_hearsay * n_heard
    ```
-   `L` is net clue evidence ((# YES - # NO) x ln(q / (1 - q))) from clues seen directly (`own`) or relayed by neighbors (`heard`). The own estimate and the market price are averaged with weights that sum to 1 and follow how much information each carries (inverse-variance weighting). So an agent with no clues follows the market, and experts lean on their own clues. `imbalance` is (bid depth - ask depth) / total depth near the best prices; it is 0 under the AMM.
+   `L` is net clue evidence ((# YES - # NO) x ln(q / (1 - q))) from clues seen directly (`own`, including news delivered to the agent as a seed) or relayed by neighbors (`heard`); each clue counts once however many neighbors relay it. The own estimate and the market price are averaged with weights that sum to 1 and follow how much information each carries (inverse-variance weighting). So an agent with no clues follows the market, and experts lean on their own clues. Averaging rather than adding the price's information is deliberate: agents underweight what the price reveals ("cursed" traders, Eyster, Rabin & Vayanos 2019), which keeps them trading; fully rational traders would not trade (Milgrom & Stokey 1982). `eps` (for example 1e-9) only guards against 0/0. `mid` is the LMSR price under the AMM; in a CLOB it is the midpoint when both sides are quoted and the spread is at most a set cap (starting guess 10c), else the last trade price, and if nothing has traded yet the agent ignores the market (`w_market = 0`). `imbalance` is (bid depth - ask depth) / total depth near the best prices; it is 0 under the AMM.
 2. **Sizes.** Fractional Kelly (Kelly 1956) sets a *target position*; the agent trades the difference from its current position. Kelly betting is log utility, under which the price is the wealth-weighted average belief (Wolfers & Zitzewitz 2006), which gives a theoretical benchmark.
-   Steps 2 and 3 use *perceived* probabilities: `pw(b)` for YES and `pw(1 - b)` for NO, with the probability weighting function `pw(p) = p^g / (p^g + (1 - p)^g)^(1/g)` (Tversky & Kahneman 1992). With `g < 1` an agent overweights small probabilities, so it overpays for longshots and underpays for favorites. This is the misperception explanation of the favorite-longshot bias (Snowberg & Wolfers 2010) and the mechanism Burgi et al. (2025) propose for Kalshi.
-3. **Acts.** Trade immediately if the edge after fees exceeds `min_edge`; otherwise, with probability `patience`, post a resting order; otherwise wait. Under the AMM, buy from the LMSR until its price reaches `pw(b) - min_edge`.
+   Steps 2 and 3 use *perceived* probabilities from the symmetric linear-in-log-odds weighting function (Goldstein & Einhorn 1987; Gonzalez & Wu 1999): `logit(p_yes) = g * logit(b)` and `p_no = 1 - p_yes`. With `g < 1` an agent overweights small probabilities, so it overpays for longshots and underpays for favorites; at the same `g` the longshot overweighting is close to Tversky & Kahneman's (1992) form. Unlike that form, perceived YES and NO always sum to 1 and a 50% belief stays at 50%, so weighting creates no no-trade band of its own near 50c, where the fee is largest, and E1 sees the fee's effect clearly. This is the misperception explanation of the favorite-longshot bias (Snowberg & Wolfers 2010) and the mechanism Burgi et al. (2025) propose for Kalshi.
+3. **Acts.** Trade immediately if the edge after fees exceeds `min_edge`; otherwise, with probability `patience`, post a resting order; otherwise wait. Under the AMM, buy from the LMSR until its price reaches `p_yes - min_edge`.
 4. **Maintains orders.** Cancel a resting order whose edge has fallen below `min_edge` (the picking-off risk), and reprice an order stuck far behind the best quote (the non-execution risk). These are the two motives for cancellation in the microstructure literature (Copeland & Galai 1983; Liu 2009; Fong & Liu 2010). Agents notice stale orders only on their own turns, which models costly monitoring (Foucault, Roell & Sandas 2003).
 
 **Agent traits:**
@@ -77,7 +77,7 @@ Agents have no type labels. Each agent is a vector of traits drawn at setup, and
 | `min_edge` | smallest edge worth acting on | half-normal |
 | `patience` | chance of posting a resting order instead of waiting | logit-normal, mean increasing in `n_clues` |
 | `kelly_frac` | risk tolerance: fraction of the Kelly bet placed | Beta, well below 1 |
-| `g` | probability weighting (1 = none, below 1 = overweights longshots) | bounded between about 0.6 and 1, mean near Tversky & Kahneman's estimates |
+| `g` | probability weighting (1 = none, below 1 = overweights longshots) | bounded between about 0.6 and 1, mean set from lab estimates (Tversky & Kahneman 1992; Gonzalez & Wu 1999) |
 | `cash` | starting budget | lognormal |
 | `activity` | how often the agent gets a turn | lognormal weights |
 
@@ -98,9 +98,9 @@ The manipulator is an agent: it has the trait vector, a fixed set of private clu
 
 ### 2.4 Information layer
 
-- **World and clues.** Draw the true outcome `Y` by coin flip. Make `M = 30` clues, each pointing to the truth with probability `q = 0.55`. Clues pointing the wrong way are honest misinformation and are already counted in `P*`. Agents' private clues come from an early subset of clues; the rest are released as scheduled news over the run.
-- **Benchmark.** `logit(P*) = (# YES - # NO real clues known to any agent) x ln(q / (1 - q))`. `P*` is perfectly calibrated by construction.
-- **Spreading.** News is released to a few seed agents. Each step, an agent that knows a clue tells each neighbor with fixed probability `beta`. An agent relays a new clue only after its next turn to trade (traders keep news until they have acted on it, van Bommel 2003). Agents eventually stop retelling a clue (stiflers, Daley & Kendall 1964). `beta` and mean degree are the same in every network; how fast each network spreads news is recorded as an outcome rather than equalized.
+- **World and clues.** Draw the true outcome `Y` by coin flip. Make `M = 80` clues, each pointing to the truth with probability `q = 0.53`. Clues pointing the wrong way are honest misinformation and are already counted in `P*`. The first `K = 60` clues are the private pool: each agent draws `n_clues` (capped at `K`) distinct clues from it at random, so each private clue is held by about 10 of the 300 agents. The other 20 are released as scheduled news over the run. With these values about 94% of final `P*` fall between 10% and 90%, and one clue moves a 50c price by about 3c, above the 1.75c fee.
+- **Benchmark.** `logit(P*) = (# YES - # NO real clues known to any agent) x ln(q / (1 - q))`, from a fair-coin prior and clues independent given `Y`. Without disinformation, `P*` is the true posterior given all information in the market: it is calibrated by construction, and the price's Brier score splits exactly into `P*`'s unavoidable error plus the aggregation loss `E[(price - P*)^2]`. With disinformation, `P*` is the price the market would show if it filtered out every lie, not the true posterior: fakes always point against the truth, so they carry information about `Y` (a Bayesian who knew the source's rules would read news as correct with probability `q / (1 + r)` and could reverse it), and the Brier split no longer holds exactly.
+- **Spreading.** Private clues never spread: an informed trader profits by trading on what others do not know (Kyle 1985), so private information reaches the price only through trading, and the network carries only news and disinformation. News is released to a few seed agents. Each step, an agent that knows a clue tells each neighbor with fixed probability `beta` (0.5 for now). An agent relays a new clue only after its next turn to trade (traders keep news until they have acted on it, van Bommel 2003). Agents eventually stop retelling a clue (stiflers, Daley & Kendall 1964). `beta` and mean degree are the same in every network; how fast each network spreads news is recorded as an outcome rather than equalized.
 - **Disinformation.** A non-trading disinformation source deliberately fabricates clues pointing against the truth, added at a set ratio to true news and seeded like true news. Agents cannot tell fakes apart; how much they believe any heard clue depends only on their own traits. Fakes are excluded from `P*`. Unlike random misinformation, disinformation is one-sided, so it does not cancel out (Wardle & Derakhshan 2017).
 - **Networks** (each adds one property of real social networks):
 
@@ -144,9 +144,11 @@ Starting defaults: 300 agents, T = 2000 steps, 100 seeds per configuration (neve
 | Disinformation distortion: signed gap to `P*` in the fakes' direction (E2) | How far do lies move the price? |
 | Manipulation premium; peak and duration of distortion; money taken from others (E3) | Does manipulation pay, and does it harm the market? |
 
+**Scored price.** "Price" in every metric is the same reference agents use (Section 2.2): the midpoint when both sides are quoted and the spread is within the cap, otherwise the last trade price.
+
 **Statistics.** Each run is one data point. Report means with 95% confidence intervals, and report configuration comparisons as paired differences on shared seeds. Add seeds if intervals are too wide.
 
-**Kalshi calibration check.** Pull resolved binary markets from Kalshi's public API, take each price a fixed time before close, bin by price, and plot the fraction resolving YES with confidence intervals. Do the same for the simulated default. The `g` distribution is set from Tversky & Kahneman's lab estimates, not tuned to Kalshi, so a match is an out-of-sample test rather than a fit. To separate rules from behavior, rerun the default with `g = 1` for everyone. Any remaining bias then comes from Kalshi's rules alone (Snowberg & Wolfers 2010; Burgi et al. 2025). Public data does not show who traded; state this as a limitation.
+**Kalshi calibration check.** Pull resolved binary markets from Kalshi's public API, take each price a fixed time before close, bin by price, and plot the fraction resolving YES with confidence intervals. Do the same for the simulated default. The `g` distribution is set from lab estimates of probability weighting, not tuned to Kalshi, so a match is an out-of-sample test rather than a fit. To separate rules from behavior, rerun the default with `g = 1` for everyone. Any remaining bias then comes from Kalshi's rules alone (Snowberg & Wolfers 2010; Burgi et al. 2025). Public data does not show who traded; state this as a limitation.
 
 ---
 

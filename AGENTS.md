@@ -10,7 +10,7 @@ An agent-based model of one Kalshi binary prediction market. Three experiments: 
 
 ## Core principles
 
-- Every run has a known right answer: `P*`, the exact Bayesian posterior from every real clue any agent holds. Prices are scored against it.
+- Every run has a known benchmark: `P*`, the exact Bayesian posterior from every real clue any agent holds (fakes excluded). Prices are scored against it.
 - Experiments change one variable at a time around one shared default configuration. Write predictions first.
 - "Agents" means traders only (the manipulator is an agent with extra rules). The market maker and information sources are model components. Agents have no type labels; behavior comes from trait variables.
 - Money is integer cents. One YES order book; positions are signed YES counts; everything is fully collateralized.
