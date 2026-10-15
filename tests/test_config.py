@@ -11,6 +11,9 @@ def test_defaults_match_plan():
     assert config.n_steps == 2000
     assert config.taker_fee_bp == 700
     assert config.maker_fee_bp == 0
+    assert config.n_clues_total == 80
+    assert config.n_private == 60
+    assert config.clue_accuracy == 0.53
 
 
 def test_config_is_frozen():
@@ -26,7 +29,7 @@ def test_replace_changes_one_field_and_keeps_the_rest():
 
 
 def test_config_round_trips_through_a_dict():
-    config = Config(n_agents=50, n_steps=10, taker_fee_bp=0)
+    config = Config(n_agents=50, n_steps=100, taker_fee_bp=0)
     assert Config(**asdict(config)) == config
 
 
@@ -48,6 +51,14 @@ def test_fields_are_keyword_only():
         {"taker_fee_bp": 0.07},
         {"maker_fee_bp": -175},
         {"maker_fee_bp": False},
+        {"n_clues_total": 0},
+        {"n_private": -1},
+        {"n_private": 81},
+        {"n_clues_total": 30, "n_private": 0, "n_steps": 29},
+        {"clue_accuracy": 0.5},
+        {"clue_accuracy": 1.0},
+        {"clue_accuracy": 0.3},
+        {"clue_accuracy": 1},
     ],
 )
 def test_invalid_values_are_rejected(overrides):
