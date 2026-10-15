@@ -154,7 +154,7 @@ Starting defaults: 300 agents, T = 2000 steps, 100 seeds per configuration (neve
 
 ## 4. Implementation steps
 
-Market mechanics (`fees.py`, `lmsr.py`, `orderbook.py`) are plain Python with no Mesa dependency. Mesa covers agents, the model step, data collection, and `batch_run`. Every parameter lives in one `Config` dataclass in `src/config.py`; results save the config they ran with. Figures are drawn from `results/*.csv`.
+Market mechanics (`fees.py`, `lmsr.py`, `orderbook.py`) are plain Python with no Mesa dependency. Mesa covers agents, the model step, data collection, and `batch_run`. Every parameter lives in one `Config` dataclass in `src/kalshi_model/config.py`; results save the config they ran with. Figures are drawn from `results/*.csv`.
 
 1. **Skeleton and fees.** Repo, `Config`, `fees.py` in integer cents. *Done when* fee tests pass (for example 1 contract at 50c pays 2c, 100 contracts at 5c pay 34c; `fee(P) == fee(100 - P)`).
 2. **World and `P*`.** *Done when* `P*` matches hand-made cases and 10,000 simulated worlds show at least 90% of final `P*` between 10% and 90%.
