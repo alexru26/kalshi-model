@@ -1,4 +1,4 @@
-"""Print one AMM run's price next to P*, to see the price track the benchmark.
+"""Print one AMM run's price next to P*, to see how far the price moves toward the benchmark.
 
 Usage: uv run python experiments/example_run.py [seed]
 """
