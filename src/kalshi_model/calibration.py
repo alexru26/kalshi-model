@@ -5,17 +5,24 @@ The default Kalshi market should reproduce several real patterns at once:
 1. Spreads of a few cents: the median bid-ask spread lies within the middle half of
    liquid Kalshi markets' spreads (their 25th to 75th percentiles). Real markets differ,
    and the model is one market, so any value in that range is consistent with Kalshi.
+   This only rules out wide spreads: Kalshi's 25th percentile is the 1c tick, and the
+   model's median spread is 1c, Kalshi's tightest quartile (Kalshi median 2c, IQR
+   1-6c), so the pattern does not pin the spread down.
 2. Kalshi trade sizes: the quantiles of fill sizes match Kalshi's trades.
 3. The book is rarely empty: at most 2% of steps end with no bid or no offer (the
    Step 5 criterion, kept while tuning so larger orders cannot empty the book).
 4. Informed agents earn more: the best-informed tenth out-earns agents with no clues,
    who lose on average (they pay spreads and fees for noise trading).
 
-Reported, not required: whether the price is more accurate than the average agent
-(lower Brier score against the outcome, smaller gap to P*). Beliefs are averages, so the
-price is roughly a weighted average of agents' beliefs and comes out about as accurate
-as the average agent; over 144 seeds the difference was within two standard errors
-(decided with the user in Step 7).
+Reported, not required: whether the price is more accurate than the average agent's
+own judgment (lower Brier score against the outcome, smaller gap to P*). Each agent is
+scored on its own-evidence posterior (no market term, no depth signal, no noise), so
+agents with no clues score 0.5. Beliefs are averages, so the price is roughly a
+weighted average of agents' beliefs and comes out only slightly more accurate than the
+average agent's own judgment: over 144 seeds its Brier score was better by 0.0042 (se
+0.0023), and the price was better in 55% of seeds (decided with the user in Step 7).
+The `beats_agents` columns in `results/calibration.csv` predate this and compared the
+price with agents' beliefs after averaging in the market price.
 
 `measure` reads these off finished runs; `targets` loads the real values fetched by
 `data/fetch_kalshi_patterns.py`; `evaluate` scores a run set against them.
@@ -66,7 +73,7 @@ def measure(models: list[MarketModel]) -> dict:
         price_brier.append((price - y) ** 2)
         price_gap.append(abs(price - p_star))
         for trader in model.traders:
-            belief = sigmoid(trader.belief(price, 0.0, 0.0))
+            belief = sigmoid(trader.belief(None, 0.0, 0.0))
             agent_brier.append((belief - y) ** 2)
             agent_gap.append(abs(belief - p_star))
         n_clues = model.traits.n_clues
