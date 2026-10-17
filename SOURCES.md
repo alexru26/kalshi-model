@@ -36,7 +36,7 @@ Each entry has a one-sentence summary of why it matters for this project. Entrie
 ## Modeling
 
 - Gode, D., & Sunder, S. (1993). Allocative efficiency of markets with zero-intelligence traders. *Journal of Political Economy*, 101(1). Random budget-constrained traders already produce sensible prices; used only as a sanity-check population.
-- Othman, A. (2008). Zero-intelligence agents in prediction markets. *AAMAS*. Zero-intelligence agents with Beta-distributed beliefs trading single shares in a continuous double auction show a favorite-longshot bias (for example, a mean belief of 0.8 trades at 0.742 under diffuse beliefs); our replication check once the order book exists.
+- Othman, A. (2008). Zero-intelligence agents in prediction markets. *AAMAS*. Zero-intelligence agents with Beta-distributed beliefs trading single shares in a continuous double auction show a favorite-longshot bias (for example, a mean belief of 0.8 trades at 0.742 under diffuse beliefs); our order-book sanity check (`experiments/othman_check.py`).
 - Chakraborty, M., Das, S., & Peabody, J. (2015). Price evolution in a continuous double auction prediction market with a scoring-rule based market maker. *AAAI*. Combines an order book with an automated market maker in one simulation.
 - Arthur, W. B., Holland, J., LeBaron, B., Palmer, R., & Tayler, P. (1997). Asset pricing under endogenous expectations in an artificial stock market. *The Economy as an Evolving Complex System II*. Classic complex-systems market model with heterogeneous adaptive agents.
 - Grimm, V., et al. (2005). Pattern-oriented modeling of agent-based complex systems. *Science*, 310(5750). † Calibrate an ABM by matching several observed patterns at once; our calibration method.
@@ -96,6 +96,7 @@ Each entry has a one-sentence summary of why it matters for this project. Entrie
 ## Kalshi-specific
 
 - Kalshi, Fee Schedule (official PDF). https://kalshi.com/docs/kalshi-fee-schedule.pdf. The taker and maker fee formulas, rounding, and free cancellation.
+- Kalshi API docs, Fee Rounding. https://docs.kalshi.com/getting_started/fee_rounding. Kalshi keeps a fee accumulator per order across all its fills, so an order filled in pieces pays about what one equivalent fill would; our order book rounds each order's total fee up once.
 - Kalshi Trade API v2 (public market data). https://api.elections.kalshi.com/trade-api/v2. Source for the calibration check and the trade-size and spread patterns.
 - Kalshi API docs, Cancel Up to 10,000 Orders. https://docs.kalshi.com/api-reference/orders/cancel-up-to-10000-orders. Bulk cancellation is supported, which shows cancel-and-requote is normal practice.
 - Burgi, C., Deng, W., & Whelan, K. (2025). Makers and Takers: The Economics of the Kalshi Prediction Market. UCD Economics WP2025_19 / CESifo WP 12122. https://www.ucd.ie/economics/t4media/WP2025_19.pdf. Kalshi prices are informative but show a strong favorite-longshot bias, and makers out-earn takers.
