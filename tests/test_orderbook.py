@@ -240,6 +240,31 @@ def test_invalid_orders_raise(side, price, qty):
         book.submit("a", side, price, qty)
 
 
+def test_numpy_integer_prices_and_quantities_are_accepted_as_plain_ints():
+    # Agents draw prices with NumPy, so np.int64 must work like int (review finding).
+    book = book_with("a", "b")
+    rng = np.random.default_rng(0)
+    price, qty = rng.integers(40, 60), rng.integers(2, 5)
+    resting = book.submit("a", BUY, price, qty).order_id
+    order = book.open_orders("a")[0]
+    assert order.order_id == resting
+    assert (order.price, order.remaining) == (int(price), int(qty))
+    assert type(order.price) is int and type(order.remaining) is int
+    fill = book.submit("b", SELL, np.int32(1), np.int64(1)).fills[0]
+    assert type(fill.price) is int and fill.price == int(price)
+    assert book.can_submit("b", SELL, np.int64(price), np.int64(1))
+
+
+@pytest.mark.parametrize(
+    ("price", "qty"), [(True, 1), (50, True), (np.float64(50.0), 1), (50, 2.0)]
+)
+def test_booleans_and_floats_are_rejected(price, qty):
+    book = book_with("a")
+    with pytest.raises(TypeError):
+        book.submit("a", BUY, price, qty)
+    assert book.open_orders("a") == []
+
+
 def test_unknown_and_duplicate_accounts():
     book = book_with("a")
     with pytest.raises(KeyError):

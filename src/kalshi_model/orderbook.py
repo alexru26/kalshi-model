@@ -102,6 +102,8 @@ class Submission:
 
 @dataclass
 class _Plan:
+    price: int
+    qty: int
     matches: list[tuple[Order, int]]
     self_cancels: list[Order]
     remaining: int
@@ -164,7 +166,7 @@ class OrderBook:
             self._remove(order)
             result.self_cancelled.append(order.order_id)
 
-        taker = Order(next(self._ids), owner, side, price, qty)
+        taker = Order(next(self._ids), owner, side, plan.price, plan.qty)
         for maker, fill_qty in plan.matches:
             result.fills.append(self._execute(taker, maker, fill_qty))
         if plan.remaining and not ioc:
@@ -316,9 +318,8 @@ class OrderBook:
             raise RuntimeError("the market has settled")
         if side not in SIDES:
             raise ValueError(f"side must be {BUY!r} or {SELL!r}, got {side!r}")
-        if not isinstance(price, int) or isinstance(price, bool):
-            raise TypeError(f"price must be an integer number of cents, got {price!r}")
-        qty = index(qty)
+        price = _whole_number("price", price)
+        qty = _whole_number("qty", qty)
         if not 1 <= price <= 99:
             raise ValueError(f"price must be between 1 and 99 cents, got {price}")
         if qty < 1:
@@ -367,7 +368,7 @@ class OrderBook:
                 ask_reserve += reserve
         if cash - bid_reserve < 0 or cash + 100 * position - ask_reserve < 0:
             raise OrderRejected("insufficient collateral")
-        return _Plan(matches, self_cancels, remaining)
+        return _Plan(price, qty, matches, self_cancels, remaining)
 
     def _reserve_for(self, order: Order, qty: int) -> int:
         """Worst-case cost of `qty` more maker fills: price risk plus the fee left to pay."""
@@ -453,3 +454,16 @@ class OrderBook:
         if not queue:
             del self._levels[order.side][order.price]
         del self._orders[order.order_id]
+
+
+def _whole_number(name: str, value: object) -> int:
+    """Accept any integer type (NumPy integers included) as a plain int; reject the rest.
+
+    Floats such as 50.0 are rejected rather than truncated, and so are booleans.
+    """
+    if isinstance(value, bool):
+        raise TypeError(f"{name} must be an integer, got {value!r}")
+    try:
+        return index(value)
+    except TypeError:
+        raise TypeError(f"{name} must be an integer, got {value!r}") from None
