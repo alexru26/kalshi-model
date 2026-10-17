@@ -75,6 +75,11 @@ def test_fields_are_keyword_only():
         {"mm_half_spread": 12.0},
         {"spread_cap": 0},
         {"mm_cash": -1},
+        {"network": "lattice"},
+        {"mean_degree": 5},
+        {"mean_degree": 300},
+        {"beta": -0.1},
+        {"disinfo_ratio": -0.05},
     ],
 )
 def test_invalid_values_are_rejected(overrides):

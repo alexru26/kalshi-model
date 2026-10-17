@@ -22,6 +22,7 @@ STREAM_NAMES = (
     "news",
     "decisions",
     "patience",
+    "spread",
 )
 
 

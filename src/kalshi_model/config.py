@@ -8,6 +8,7 @@ parameters to this class.
 from dataclasses import dataclass, fields
 
 MECHANISMS = ("amm", "clob")
+NETWORKS = ("erdos_renyi", "watts_strogatz", "barabasi_albert", "holme_kim", "sbm")
 
 
 def _is_int(value: object) -> bool:
@@ -72,7 +73,25 @@ class Config:
     n_private: int = 60
     clue_accuracy: float = 0.53
     n_news_seeds: int = 5
-    """Agents who receive each news clue directly when it is released."""
+    """Agents who receive each news (or fake) clue directly when it is released."""
+
+    # Information layer (PLAN.md Section 2.4). E2 varies `network` and `disinfo_ratio`.
+    network: str = "holme_kim"
+    mean_degree: int = 8
+    """The same in every network; must be even (Watts-Strogatz and the BA-type graphs).
+
+    0 means no network at all: news stays with its seed agents (single-agent tests).
+    """
+    ws_rewire: float = 0.1
+    """Watts-Strogatz rewiring probability."""
+    hk_triad: float = 0.5
+    """Holme-Kim chance of closing a triangle after each preferential link."""
+    sbm_cross_share: float = 0.05
+    """Stochastic block model: expected share of a node's links into the other group."""
+    beta: float = 0.5
+    """Chance per step that a spreader tells each neighbor."""
+    disinfo_ratio: float = 0.0
+    """Fake clues per true news clue (0, 0.05, 0.1, 0.2 give 0, 1, 2, 4 fakes)."""
 
     # Trait distributions (PLAN.md Section 2.2), starting guesses until calibration.
     # Informedness is heavy-tailed: with mean 20 and dispersion 0.2, about 40% of agents
@@ -104,6 +123,11 @@ class Config:
     """Median starting cash, in cents."""
     cash_sigma: float = 1.0
     activity_sigma: float = 1.0
+
+    @property
+    def n_fakes(self) -> int:
+        """Fake clues the disinformation source releases: disinfo_ratio x true news."""
+        return round(self.disinfo_ratio * (self.n_clues_total - self.n_private))
 
     def __post_init__(self) -> None:
         for f in fields(self):
@@ -151,6 +175,15 @@ class Config:
                 "clue_accuracy must be a float strictly between 0.5 and 1, "
                 f"got {self.clue_accuracy!r}"
             )
+        if self.network not in NETWORKS:
+            raise ValueError(f"network must be one of {NETWORKS}, got {self.network!r}")
+        if self.mean_degree % 2 or not 0 <= self.mean_degree < self.n_agents:
+            raise ValueError("mean_degree must be even, non-negative, and below n_agents")
+        for name in ("ws_rewire", "hk_triad", "sbm_cross_share", "beta"):
+            if not 0 <= getattr(self, name) <= 1:
+                raise ValueError(f"{name} must be between 0 and 1")
+        if self.disinfo_ratio < 0:
+            raise ValueError("disinfo_ratio must be non-negative")
         if self.mm_alpha > 1 or self.mm_decay >= 1:
             raise ValueError("mm_alpha must be at most 1 and mm_decay below 1")
         if self.mm_half_spread > self.mm_max_half_spread:
