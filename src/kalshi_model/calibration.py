@@ -20,8 +20,9 @@ scored on its own-evidence posterior (no market term, no depth signal, no noise)
 who knows no clue at all scores 0.5, which is rare by the end of a run because news and
 hearsay reach nearly every agent. Beliefs are averages, so the price is roughly a
 weighted average of agents' beliefs and comes out only slightly more accurate than the
-average agent's own judgment: over 144 seeds its Brier score was better by 0.0042 (se
-0.0023), and the price was better in 55% of seeds (decided with the user in Step 7).
+average agent's own judgment: over seeds 5000-5143 its Brier score was better by
+0.0042 (se 0.0023) and the price was better in 55% of seeds; other 144-seed sets give
+0.0017 to 0.0047 and 48% to 55% (decided with the user in Step 7).
 The `beats_agents` columns in `results/calibration.csv` predate this and compared the
 price with agents' beliefs after averaging in the market price.
 
