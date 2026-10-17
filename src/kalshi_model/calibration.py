@@ -16,8 +16,9 @@ The default Kalshi market should reproduce several real patterns at once:
 
 Reported, not required: whether the price is more accurate than the average agent's
 own judgment (lower Brier score against the outcome, smaller gap to P*). Each agent is
-scored on its own-evidence posterior (no market term, no depth signal, no noise), so
-agents with no clues score 0.5. Beliefs are averages, so the price is roughly a
+scored on its own-evidence posterior (no market term, no depth signal, no noise); one
+who knows no clue at all scores 0.5, which is rare by the end of a run because news and
+hearsay reach nearly every agent. Beliefs are averages, so the price is roughly a
 weighted average of agents' beliefs and comes out only slightly more accurate than the
 average agent's own judgment: over 144 seeds its Brier score was better by 0.0042 (se
 0.0023), and the price was better in 55% of seeds (decided with the user in Step 7).
