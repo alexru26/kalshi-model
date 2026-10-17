@@ -113,3 +113,18 @@ def test_broke_market_maker_quotes_nothing():
     mm.requote()
     assert quotes(book) == []
     assert mm.bid is None and mm.ask is None
+
+
+def test_inventory_never_passes_the_cap():
+    book, mm = setup(mm_max_inventory=5)
+    mm.requote()
+    assert sorted((o.side, o.remaining) for o in book.open_orders(OWNER)) == [
+        (BUY, 5),
+        (SELL, 5),
+    ]
+    book.submit("agent", SELL, 1, 50)  # sell into every bid the market maker shows
+    assert mm.account.position == 5
+    mm.requote()
+    assert mm.bid is None
+    book.submit("agent", BUY, 99, 50)  # buy every offer
+    assert mm.account.position >= -5

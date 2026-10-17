@@ -14,7 +14,8 @@ act, it cancels its quotes and requotes both sides:
 
 Quotes are post-only: a quote that would cross an agent's resting order is moved one
 cent inside it, so the market maker never takes liquidity or pays taker fees. Past
-`mm_max_inventory` contracts long (short) it stops bidding (offering). It trades from
+`mm_max_inventory` contracts long (short) it never goes: each quote that adds to its
+inventory is sized to the room left under the cap. It trades from
 its own order-book account, so it is held to the same collateral rules as agents.
 """
 
@@ -64,8 +65,9 @@ class MarketMaker:
         if best_bid is not None:
             ask = max(ask, best_bid + 1)
 
-        self.bid = self._quote(BUY, bid) if inventory < cfg.mm_max_inventory else None
-        self.ask = self._quote(SELL, ask) if inventory > -cfg.mm_max_inventory else None
+        # A fully filled quote must not carry inventory past the cap.
+        self.bid = self._quote(BUY, bid, cfg.mm_max_inventory - inventory)
+        self.ask = self._quote(SELL, ask, cfg.mm_max_inventory + inventory)
 
     def _learn(self) -> None:
         new_fills = self.book.fills[self._fills_seen :]
@@ -87,11 +89,14 @@ class MarketMaker:
             + self.config.mm_widen * loss / self.config.mm_size
         )
 
-    def _quote(self, side: str, price: int) -> int | None:
-        """Post the largest affordable quote up to `mm_size`; return its price if posted."""
+    def _quote(self, side: str, price: int, room: int) -> int | None:
+        """Post the largest affordable quote up to `mm_size` and `room` contracts.
+
+        Returns the quote's price, or None if nothing was posted.
+        """
         if not 1 <= price <= 99:
             return None
-        lo, hi = 0, self.config.mm_size
+        lo, hi = 0, max(0, min(self.config.mm_size, room))
         while lo < hi:
             mid = (lo + hi + 1) // 2
             if self.book.can_submit(OWNER, side, price, mid, post_only=True):
