@@ -19,6 +19,8 @@ STREAM_NAMES = (
     "turns",
     "disinformation",
     "manipulator",
+    "news",
+    "decisions",
 )
 
 

@@ -41,6 +41,7 @@ Managed with `uv` (Python 3.12). CI (`.github/workflows/ci.yml`) runs the same c
 
 - Mesa 3.5 requires Python >= 3.12, uses `rng=` (not the deprecated `seed=`), and `batch_run` uses `spawn`, so the model must be importable at module level.
 - No Chrome is installed in this WSL environment; browser screenshots do not work here.
+- In WSL with the repo on `/mnt/c`, keep the virtualenv on the Linux disk: `export UV_PROJECT_ENVIRONMENT=~/.venvs/kalshi-model`. Importing Mesa resolves about 1,200 file paths, which takes about 14s on `/mnt/c` and 2s on the Linux disk.
 - `.lavish/` is gitignored; `.lavish/plan-summary.html` predates the redesign, so regenerate rather than hand-edit.
 
 ## Maintaining this file

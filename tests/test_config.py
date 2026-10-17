@@ -2,7 +2,7 @@ from dataclasses import FrozenInstanceError, asdict, replace
 
 import pytest
 
-from kalshi_model.config import Config
+from kalshi_model.config import Config, amm_config
 
 
 def test_defaults_match_plan():
@@ -59,8 +59,29 @@ def test_fields_are_keyword_only():
         {"clue_accuracy": 1.0},
         {"clue_accuracy": 0.3},
         {"clue_accuracy": 1},
+        {"mechanism": "lmsr"},
+        {"mechanism": "amm"},
+        {"mechanism": "amm", "taker_fee_bp": 0, "maker_fee_bp": 175},
+        {"turns_per_step": 301},
+        {"n_news_seeds": 301},
+        {"lmsr_b": 0.0},
+        {"noise_scale": -0.1},
+        {"g_low": 0.9, "g_high": 0.8},
+        {"g_high": 1.2},
+        {"n_clues_mean": "20"},
     ],
 )
 def test_invalid_values_are_rejected(overrides):
     with pytest.raises(ValueError):
         Config(**overrides)
+
+
+def test_amm_config_is_the_fee_free_lmsr():
+    config = amm_config(lmsr_b=10.0)
+    assert (config.mechanism, config.taker_fee_bp, config.maker_fee_bp) == ("amm", 0, 0)
+    assert config.lmsr_b == 10.0
+    assert config.n_agents == Config().n_agents
+
+
+def test_float_parameters_accept_integers():
+    assert Config(lmsr_b=50).lmsr_b == 50

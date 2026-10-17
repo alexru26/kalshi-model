@@ -5,6 +5,8 @@ description = "An agent-based model of one Kalshi binary prediction market."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "mesa>=3.5,<3.6",
+    "networkx>=3",
     "numpy>=2",
 ]
 
