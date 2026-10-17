@@ -96,6 +96,7 @@ Each entry has a one-sentence summary of why it matters for this project. Entrie
 ## Kalshi-specific
 
 - Kalshi, Fee Schedule (official PDF). https://kalshi.com/docs/kalshi-fee-schedule.pdf. The taker and maker fee formulas, rounding, and free cancellation.
+- Kalshi API docs, Fee Rounding. https://docs.kalshi.com/getting_started/fee_rounding. Kalshi keeps a fee accumulator per order across all its fills, so an order filled in pieces pays about what one equivalent fill would; our order book rounds each order's total fee up once.
 - Kalshi Trade API v2 (public market data). https://api.elections.kalshi.com/trade-api/v2. Source for the calibration check and the trade-size and spread patterns.
 - Kalshi API docs, Cancel Up to 10,000 Orders. https://docs.kalshi.com/api-reference/orders/cancel-up-to-10000-orders. Bulk cancellation is supported, which shows cancel-and-requote is normal practice.
 - Burgi, C., Deng, W., & Whelan, K. (2025). Makers and Takers: The Economics of the Kalshi Prediction Market. UCD Economics WP2025_19 / CESifo WP 12122. https://www.ucd.ie/economics/t4media/WP2025_19.pdf. Kalshi prices are informative but show a strong favorite-longshot bias, and makers out-earn takers.
