@@ -25,7 +25,6 @@ from __future__ import annotations
 from collections import OrderedDict
 from collections.abc import Hashable
 from dataclasses import dataclass, field
-from itertools import count
 from operator import index
 
 from kalshi_model.fees import ceil_cents, exact_fee
@@ -119,7 +118,7 @@ class OrderBook:
         self._levels: dict[str, dict[int, OrderedDict[int, Order]]] = {BUY: {}, SELL: {}}
         self._orders: dict[int, Order] = {}
         self._by_owner: dict[Hashable, dict[int, Order]] = {}
-        self._ids = count(1)
+        self._last_id = 0
         self.fills: list[Fill] = []
         self.fees_collected = 0
         self.last_price: int | None = None
@@ -167,7 +166,8 @@ class OrderBook:
             self._remove(order)
             result.self_cancelled.append(order.order_id)
 
-        taker = Order(next(self._ids), owner, side, plan.price, plan.qty)
+        self._last_id += 1
+        taker = Order(self._last_id, owner, side, plan.price, plan.qty)
         for maker, fill_qty in plan.matches:
             result.fills.append(self._execute(taker, maker, fill_qty))
         if plan.remaining and not ioc:

@@ -1,0 +1,36 @@
+{
+  "fetched_at": "2026-10-17T18:44:03+00:00",
+  "source": "https://api.elections.kalshi.com/trade-api/v2",
+  "filters": {
+    "status": "open",
+    "combination_markets": "excluded",
+    "min_volume_24h_contracts": 500,
+    "midpoint_range": [
+      0.2,
+      0.8
+    ],
+    "trades_per_market": 1000,
+    "block_trades": "excluded"
+  },
+  "n_markets": 300,
+  "spread_cents": {
+    "mean": 8.95,
+    "q10": 1.0,
+    "q25": 1.0,
+    "q50": 2.0,
+    "q75": 6.0,
+    "q90": 34.0,
+    "q99": 81.06999999999994
+  },
+  "n_trades": 27588,
+  "trade_size_contracts": {
+    "mean": 69.10732854864433,
+    "share_at_most_1": 0.18457300275482094,
+    "q10": 1.0,
+    "q25": 2.13,
+    "q50": 10.0,
+    "q75": 35.352500000000006,
+    "q90": 105.0,
+    "q99": 1000.1053000000009
+  }
+}

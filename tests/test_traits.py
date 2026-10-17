@@ -45,12 +45,15 @@ def test_trait_means_follow_the_config(big):
     assert big.market_trust.mean() == pytest.approx(
         config.market_trust_shape * config.market_trust_scale, rel=0.03
     )
-    assert big.kelly_frac.mean() == pytest.approx(0.2, abs=0.005)
+    kelly_mean = config.kelly_alpha / (config.kelly_alpha + config.kelly_beta)
+    assert big.kelly_frac.mean() == pytest.approx(kelly_mean, abs=0.005)
     assert big.w_depth.mean() == pytest.approx(0.1, abs=0.005)
     assert big.g.mean() == pytest.approx(0.8, abs=0.005)
     assert np.median(big.cash) == pytest.approx(config.cash_median, rel=0.05)
     # Half-normal mean is scale x sqrt(2 / pi).
-    assert big.min_edge.mean() == pytest.approx(2.0 * np.sqrt(2 / np.pi), rel=0.03)
+    assert big.min_edge.mean() == pytest.approx(
+        config.min_edge_scale * np.sqrt(2 / np.pi), rel=0.03
+    )
 
 
 def test_informedness_is_heavy_tailed(big):

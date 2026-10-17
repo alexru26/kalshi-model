@@ -1,8 +1,10 @@
 """The single configuration object for a model run.
 
-Every parameter lives here (PLAN.md Section 4). Values are starting defaults until
-calibration (PLAN.md Section 4, Step 7) freezes them. Later build steps add their
-parameters to this class.
+Every parameter lives here (PLAN.md Section 4). The trait distributions and the market
+maker were calibrated in Step 7 against real Kalshi patterns (`experiments/calibrate.py`,
+`results/calibration.csv`) and are frozen for all experiments. `g` (set from lab
+estimates), informedness (set in Step 3), `w_hearsay` and `w_depth` (no data anchor), and
+the network, AMM, and order-upkeep settings are assumptions or starting guesses.
 """
 
 from dataclasses import dataclass, fields
@@ -48,12 +50,13 @@ class Config:
     stale_steps: int = 20
     """Steps a resting order may sit stale before its owner cancels it to reprice."""
 
-    # Market-maker component in the CLOB (PLAN.md Section 2.1; starting guesses).
+    # Market-maker component in the CLOB (PLAN.md Section 2.1). mm_size and
+    # mm_half_spread were calibrated in Step 7; the rest are starting guesses.
     mm_cash: int = 1_000_000
     """Market maker's starting cash, in cents."""
-    mm_size: int = 10
+    mm_size: int = 15
     """Contracts quoted on each side."""
-    mm_half_spread: float = 2.0
+    mm_half_spread: float = 2.9
     """Base half-spread, in cents."""
     mm_max_half_spread: float = 10.0
     mm_alpha: float = 0.1
@@ -93,7 +96,8 @@ class Config:
     disinfo_ratio: float = 0.0
     """Fake clues per true news clue (0, 0.05, 0.1, 0.2 give 0, 1, 2, 4 fakes)."""
 
-    # Trait distributions (PLAN.md Section 2.2), starting guesses until calibration.
+    # Trait distributions (PLAN.md Section 2.2). Calibrated in Step 7 except informedness,
+    # w_hearsay (hearsay_*), w_depth (depth_*), and g.
     # Informedness is heavy-tailed: with mean 20 and dispersion 0.2, about 40% of agents
     # hold no private clue and the top 10% hold most of the pool. Beliefs are averages, so
     # the price is roughly a weighted average of agents' posteriors; how much of the pool
@@ -104,25 +108,25 @@ class Config:
     hearsay_gamma: float = 0.05
     hearsay_sigma: float = 1.0
     market_trust_shape: float = 2.0
-    market_trust_scale: float = 1.5
+    market_trust_scale: float = 4.9
     depth_alpha: float = 1.0
     depth_beta: float = 9.0
     noise_scale: float = 0.1
     min_edge_scale: float = 2.0
     """Half-normal scale of `min_edge`, in cents."""
-    patience_mu: float = 0.0
+    patience_mu: float = 0.68
     patience_delta: float = 0.05
     patience_sigma: float = 1.0
-    kelly_alpha: float = 2.0
-    kelly_beta: float = 8.0
+    kelly_alpha: float = 4.0
+    kelly_beta: float = 6.0
     g_low: float = 0.6
     g_high: float = 1.0
     g_alpha: float = 2.0
     g_beta: float = 2.0
-    cash_median: int = 10_000
+    cash_median: int = 47_000
     """Median starting cash, in cents."""
-    cash_sigma: float = 1.0
-    activity_sigma: float = 1.0
+    cash_sigma: float = 1.8
+    activity_sigma: float = 0.77
 
     @property
     def n_fakes(self) -> int:

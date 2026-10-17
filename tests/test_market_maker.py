@@ -6,7 +6,8 @@ from kalshi_model.orderbook import BUY, SELL, OrderBook
 
 
 def setup(**overrides):
-    config = Config(**overrides)
+    # Pin the quoting settings these hand-computed cases assume, whatever calibration picks.
+    config = Config(**({"mm_size": 10, "mm_half_spread": 2.0} | overrides))
     book = OrderBook(config.taker_fee_bp, config.maker_fee_bp)
     book.open_account("agent", 10**7)
     return book, MarketMaker(book, config)
