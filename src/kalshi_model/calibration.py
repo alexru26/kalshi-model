@@ -20,20 +20,21 @@ scored on its own-evidence posterior (no market term, no depth signal, no noise)
 who knows no clue at all scores 0.5, which is rare by the end of a run because news and
 hearsay reach nearly every agent. Beliefs are averages, so the price is roughly a
 weighted average of agents' beliefs and comes out only slightly more accurate than the
-average agent's own judgment: over seeds 5000-5143 its Brier score was better by
-0.0042 (se 0.0023) and the price was better in 55% of seeds; other 144-seed sets give
-0.0017 to 0.0047 and 48% to 55% (decided with the user in Step 7).
-The `beats_agents` columns in `results/calibration.csv` predate this and compared the
-price with agents' beliefs after averaging in the market price.
+average agent's own judgment. With the frozen defaults, seeds 5000-5143 give a Brier
+score better by 0.0038 (se 0.0025) with the price better in 52% of seeds, and seeds
+6000-6143 give 0.0025 (se 0.0022) and 51% (`experiments/validate_defaults.py` prints
+these; decided with the user in Step 7).
 
 `measure` reads these off finished runs; `targets` loads the real values fetched by
-`data/fetch_kalshi_patterns.py`; `evaluate` scores a run set against them.
+`data/fetch_kalshi_patterns.py`; `evaluate` scores a run set against them. The second
+half of the module samples and selects candidates for `experiments/calibrate.py`.
 """
 
 from __future__ import annotations
 
 import json
 import math
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -116,3 +117,78 @@ def evaluate(patterns: dict, target: dict) -> dict:
         "spread_error": spread_error,
         "distance": size_error + spread_error,
     }
+
+
+# Searching the parameter space (experiments/calibrate.py)
+
+
+@dataclass(frozen=True)
+class Dimension:
+    """One searched setting: its range, whether it is searched on a log scale, and
+    whether it is a whole number."""
+
+    name: str
+    low: float
+    high: float
+    log: bool = False
+    integer: bool = False
+
+    def value(self, u: float) -> float | int:
+        """Map u in [0, 1] onto the range."""
+        if self.log:
+            x = math.exp(math.log(self.low) + u * (math.log(self.high) - math.log(self.low)))
+        else:
+            x = self.low + u * (self.high - self.low)
+        return round(x) if self.integer else x
+
+
+SPACE = (
+    Dimension("cash_median", 20_000, 1_000_000, log=True, integer=True),
+    Dimension("cash_sigma", 0.5, 2.5),
+    Dimension("kelly_mean", 0.05, 0.5),
+    Dimension("noise_scale", 0.03, 0.3, log=True),
+    Dimension("min_edge_scale", 0.3, 5.0, log=True),
+    Dimension("patience_mu", -3.0, 2.0),
+    Dimension("market_trust_scale", 0.3, 10.0, log=True),
+    Dimension("activity_sigma", 0.3, 1.5),
+    Dimension("mm_size", 3, 100, log=True, integer=True),
+    Dimension("mm_half_spread", 0.5, 4.0),
+)
+"""The calibrated settings and their prior ranges. Kelly fractions are Beta(10m, 10(1-m))
+for a searched mean m. Not searched: g (lab estimates), informedness (Step 3), and
+w_hearsay and w_depth (no data anchor)."""
+KELLY_CONCENTRATION = 10.0
+
+
+def config_overrides(u: np.ndarray) -> dict:
+    """Config fields for one point u in the unit cube (one coordinate per SPACE entry)."""
+    values = {d.name: d.value(float(x)) for d, x in zip(SPACE, u, strict=True)}
+    kelly_mean = values.pop("kelly_mean")
+    return values | {
+        "kelly_alpha": KELLY_CONCENTRATION * kelly_mean,
+        "kelly_beta": KELLY_CONCENTRATION * (1 - kelly_mean),
+    }
+
+
+def latin_hypercube(n: int, dims: int, rng: np.random.Generator) -> np.ndarray:
+    """n points in the unit cube with exactly one point in each of n slices per axis."""
+    slices = np.stack([rng.permutation(n) for _ in range(dims)], axis=1)
+    return (slices + rng.random((n, dims))) / n
+
+
+def central_order(points: np.ndarray) -> np.ndarray:
+    """Indices of `points` from nearest to farthest from their coordinate-wise median."""
+    distance = np.linalg.norm(points - np.median(points, axis=0), axis=1)
+    return np.argsort(distance, kind="stable")
+
+
+def spread_out(points: np.ndarray, start: int, k: int) -> list[int]:
+    """k indices chosen by farthest-point sampling from `start`: each new point is the one
+    farthest from all points chosen so far, so the set covers the region."""
+    chosen = [start]
+    nearest = np.linalg.norm(points - points[start], axis=1)
+    while len(chosen) < min(k, len(points)):
+        nxt = int(np.argmax(nearest))
+        chosen.append(nxt)
+        nearest = np.minimum(nearest, np.linalg.norm(points - points[nxt], axis=1))
+    return chosen

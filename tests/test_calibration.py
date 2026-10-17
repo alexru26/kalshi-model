@@ -1,9 +1,22 @@
 import math
 import pickle
+from dataclasses import replace
 
+import numpy as np
 import pytest
 
-from kalshi_model.calibration import SIZE_QUANTILES, evaluate, measure, targets
+from kalshi_model.calibration import (
+    SIZE_QUANTILES,
+    SPACE,
+    Dimension,
+    central_order,
+    config_overrides,
+    evaluate,
+    latin_hypercube,
+    measure,
+    spread_out,
+    targets,
+)
 from kalshi_model.config import Config
 from kalshi_model.model import MarketModel
 
@@ -106,3 +119,47 @@ def test_models_pickle_for_multiprocessing():
     assert copy.datacollector.get_model_vars_dataframe().equals(
         model.datacollector.get_model_vars_dataframe()
     )
+
+
+# Searching the parameter space
+
+
+def test_latin_hypercube_puts_one_point_in_each_slice_of_every_axis():
+    points = latin_hypercube(50, 4, np.random.default_rng(1))
+    assert points.shape == (50, 4)
+    assert ((points >= 0) & (points < 1)).all()
+    for axis in range(4):
+        assert sorted((points[:, axis] * 50).astype(int)) == list(range(50))
+
+
+def test_dimensions_map_the_unit_interval_onto_their_range():
+    linear = Dimension("x", 2.0, 4.0)
+    log = Dimension("y", 1.0, 100.0, log=True)
+    whole = Dimension("z", 3, 100, log=True, integer=True)
+    assert (linear.value(0.0), linear.value(0.5), linear.value(1.0)) == (2.0, 3.0, 4.0)
+    assert log.value(0.5) == pytest.approx(10.0)
+    assert isinstance(whole.value(0.3), int) and 3 <= whole.value(0.3) <= 100
+
+
+def test_overrides_are_valid_config_fields_and_kelly_mean_maps_to_beta():
+    for u in latin_hypercube(20, len(SPACE), np.random.default_rng(2)):
+        overrides = config_overrides(u)
+        config = replace(Config(), **overrides)
+        mean = config.kelly_alpha / (config.kelly_alpha + config.kelly_beta)
+        assert 0.05 <= mean <= 0.5
+        assert config.kelly_alpha + config.kelly_beta == pytest.approx(10.0)
+
+
+def test_central_order_starts_at_the_point_nearest_the_median():
+    points = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0], [0.4, 0.6], [0.9, 0.1]])
+    order = central_order(points)
+    assert order[0] == 1  # the median is (0.5, 0.5)
+    assert sorted(order.tolist()) == list(range(5))
+
+
+def test_spread_out_picks_far_apart_points_starting_from_the_given_one():
+    corners = np.array([[0.0, 0.0], [1.0, 1.0], [0.0, 1.0], [1.0, 0.0], [0.5, 0.5], [0.52, 0.5]])
+    chosen = spread_out(corners, start=4, k=5)
+    assert chosen[0] == 4
+    assert set(chosen[1:]) == {0, 1, 2, 3}  # the four corners before the near-duplicate
+    assert len(spread_out(corners, start=0, k=99)) == len(corners)

@@ -54,9 +54,9 @@ class Config:
     # mm_half_spread were calibrated in Step 7; the rest are starting guesses.
     mm_cash: int = 1_000_000
     """Market maker's starting cash, in cents."""
-    mm_size: int = 15
+    mm_size: int = 36
     """Contracts quoted on each side."""
-    mm_half_spread: float = 2.9
+    mm_half_spread: float = 2.37
     """Base half-spread, in cents."""
     mm_max_half_spread: float = 10.0
     mm_alpha: float = 0.1
@@ -108,25 +108,25 @@ class Config:
     hearsay_gamma: float = 0.05
     hearsay_sigma: float = 1.0
     market_trust_shape: float = 2.0
-    market_trust_scale: float = 4.9
+    market_trust_scale: float = 3.78
     depth_alpha: float = 1.0
     depth_beta: float = 9.0
-    noise_scale: float = 0.1
-    min_edge_scale: float = 2.0
+    noise_scale: float = 0.054
+    min_edge_scale: float = 1.44
     """Half-normal scale of `min_edge`, in cents."""
-    patience_mu: float = 0.68
+    patience_mu: float = -0.2
     patience_delta: float = 0.05
     patience_sigma: float = 1.0
-    kelly_alpha: float = 4.0
-    kelly_beta: float = 6.0
+    kelly_alpha: float = 3.93
+    kelly_beta: float = 6.07
     g_low: float = 0.6
     g_high: float = 1.0
     g_alpha: float = 2.0
     g_beta: float = 2.0
-    cash_median: int = 47_000
+    cash_median: int = 104_000
     """Median starting cash, in cents."""
-    cash_sigma: float = 1.8
-    activity_sigma: float = 0.77
+    cash_sigma: float = 1.95
+    activity_sigma: float = 0.93
 
     @property
     def n_fakes(self) -> int:
