@@ -37,6 +37,35 @@ class Config:
     taker_fee_bp: int = 700
     maker_fee_bp: int = 0
 
+    # Order book reading and upkeep (PLAN.md Section 2.2; starting guesses).
+    spread_cap: int = 10
+    """Widest spread, in cents, at which agents read the midpoint instead of the last trade."""
+    depth_window: int = 2
+    """Cents from each best price counted in book imbalance (must cover the spoofer's k)."""
+    stale_ticks: int = 3
+    """A resting order this many cents or more behind the best quote on its side is stale."""
+    stale_steps: int = 20
+    """Steps a resting order may sit stale before its owner cancels it to reprice."""
+
+    # Market-maker component in the CLOB (PLAN.md Section 2.1; starting guesses).
+    mm_cash: int = 1_000_000
+    """Market maker's starting cash, in cents."""
+    mm_size: int = 10
+    """Contracts quoted on each side."""
+    mm_half_spread: float = 2.0
+    """Base half-spread, in cents."""
+    mm_max_half_spread: float = 10.0
+    mm_alpha: float = 0.1
+    """Weight of each new trade price in the market maker's moving price estimate."""
+    mm_skew: float = 0.05
+    """Cents the quotes move against each contract of inventory."""
+    mm_widen: float = 0.5
+    """Extra half-spread, in cents, per cent of markout loss per quoted contract."""
+    mm_decay: float = 0.9
+    """Share of the extra half-spread kept from one step to the next."""
+    mm_max_inventory: int = 200
+    """Beyond this many contracts long or short, the market maker quotes only to unwind."""
+
     # World (PLAN.md Section 2.4): M clues, each pointing to the truth with probability
     # q. The first K are the private pool; the other M - K are released as news.
     n_clues_total: int = 80
@@ -87,11 +116,14 @@ class Config:
         positive = (
             "n_agents n_steps turns_per_step n_clues_total lmsr_b n_clues_mean "
             "n_clues_dispersion market_trust_shape market_trust_scale depth_alpha "
-            "depth_beta kelly_alpha kelly_beta g_alpha g_beta cash_median"
+            "depth_beta kelly_alpha kelly_beta g_alpha g_beta cash_median spread_cap "
+            "stale_ticks stale_steps mm_size mm_half_spread mm_max_half_spread mm_alpha "
+            "mm_max_inventory"
         )
         non_negative = (
             "taker_fee_bp maker_fee_bp n_private n_news_seeds hearsay_gamma hearsay_sigma "
-            "noise_scale min_edge_scale patience_delta patience_sigma cash_sigma activity_sigma"
+            "noise_scale min_edge_scale patience_delta patience_sigma cash_sigma activity_sigma "
+            "depth_window mm_cash mm_skew mm_widen mm_decay"
         )
         for name in positive.split():
             if not getattr(self, name) > 0:
@@ -119,8 +151,17 @@ class Config:
                 "clue_accuracy must be a float strictly between 0.5 and 1, "
                 f"got {self.clue_accuracy!r}"
             )
+        if self.mm_alpha > 1 or self.mm_decay >= 1:
+            raise ValueError("mm_alpha must be at most 1 and mm_decay below 1")
+        if self.mm_half_spread > self.mm_max_half_spread:
+            raise ValueError("mm_half_spread cannot exceed mm_max_half_spread")
         if not 0 < self.g_low <= self.g_high <= 1:
             raise ValueError("g must satisfy 0 < g_low <= g_high <= 1")
+
+
+def clob_config(**overrides: object) -> Config:
+    """The E1 fee-free CLOB: Kalshi's order book without fees, other defaults unchanged."""
+    return Config(**{"mechanism": "clob", "taker_fee_bp": 0, "maker_fee_bp": 0, **overrides})
 
 
 def amm_config(**overrides: object) -> Config:
