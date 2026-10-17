@@ -1,7 +1,8 @@
 """The Mesa model: one market over one run (PLAN.md Section 2.5).
 
-Each step releases scheduled news to seed agents, lets the CLOB's market maker requote,
-then gives an activity-weighted sample of agents a turn, then records the step. After
+Each step releases scheduled news and fake clues to seed agents, spreads clues one step
+along the social network, lets the CLOB's market maker requote, then gives an
+activity-weighted sample of agents a turn, then records the step. After
 the last step the market settles. Under the AMM agents trade with the LMSR; under the
 CLOB they trade in the order book, whose accounts hold every trader's cash and position.
 Every random part draws from its own stream (see `rng.py`), and the turn order, belief
@@ -20,10 +21,11 @@ from kalshi_model.agents import Trader, solvent
 from kalshi_model.config import Config
 from kalshi_model.lmsr import LMSR
 from kalshi_model.market_maker import MarketMaker
+from kalshi_model.network import build_network, place_agents
 from kalshi_model.orderbook import BUY, SELL, OrderBook
 from kalshi_model.rng import make_streams
 from kalshi_model.traits import Traits, draw_traits
-from kalshi_model.world import deal_private_clues, make_world
+from kalshi_model.world import deal_private_clues, make_world, news_schedule
 
 
 class InvariantError(AssertionError):
@@ -54,6 +56,11 @@ class MarketModel(mesa.Model):
         self._turns_rng = streams["turns"]
         self._decisions_rng = streams["decisions"]
         self._patience_rng = streams["patience"]
+        # Each clue spreads with its own generator, so adding fake clues (E2) leaves the
+        # spread of every real news clue unchanged on the same seed.
+        self._spread_seed = int(streams["spread"].integers(2**63))
+        self._clue_rngs: dict[int, np.random.Generator] = {}
+        self._disinfo_rng = streams["disinformation"]
 
         self.world = make_world(config, streams["world"])
         self.traits = traits if traits is not None else draw_traits(config, streams["traits"])
@@ -76,6 +83,18 @@ class MarketModel(mesa.Model):
             for clue_id in hand.tolist():
                 trader.learn_own(clue_id, bool(self.world.points_yes[clue_id]))
         self._known_real: set[int] = set().union(*(t.known for t in self.traders))
+
+        # Information layer: the network, and fake clues numbered after the real ones.
+        self.graph = build_network(config, streams["network"])
+        self.neighbors = place_agents(self.graph, streams["placement"])
+        self.fake_steps = news_schedule(config.n_fakes, config.n_steps)
+        self.fake_ids = list(range(config.n_clues_total, config.n_clues_total + config.n_fakes))
+        self.release_step: dict[int, int] = {}
+        """News or fake clue id -> step it was released."""
+        self.knowers: dict[int, int] = {}
+        """News or fake clue id -> agents who know it."""
+        self.half_reach_step: dict[int, int] = {}
+        """News or fake clue id -> first step at which half the agents knew it."""
 
         weights = self.traits.activity
         self._turn_weights = weights / weights.sum()
@@ -135,6 +154,7 @@ class MarketModel(mesa.Model):
             raise RuntimeError("the market has already settled")
         t = self.steps
         self._release_news(t)
+        self._spread(t)
 
         n_turns = self.config.turns_per_step
         order = self._turns_rng.choice(
@@ -146,11 +166,13 @@ class MarketModel(mesa.Model):
         if self.lmsr is not None:
             for index, z in zip(order.tolist(), noise, strict=True):
                 self.volume += abs(self.traders[index].take_turn_amm(self.lmsr, z))
+                self.traders[index].finish_turn()
         else:
             fills_before = len(self.book.fills)
             self.market_maker.requote()
             for index, z, u in zip(order.tolist(), noise, patience_draws, strict=True):
                 self.traders[index].take_turn_clob(self.book, z, u, t)
+                self.traders[index].finish_turn()
             self.volume = sum(f.qty for f in self.book.fills[fills_before:])
             if self.book.best_bid is None or self.book.best_ask is None:
                 self.empty_book_steps += 1
@@ -166,16 +188,60 @@ class MarketModel(mesa.Model):
         while not self.settled:
             self.step()
 
+    def points_yes(self, clue_id: int) -> bool:
+        """A clue's direction. Fake clues always point against the truth."""
+        if clue_id >= self.config.n_clues_total:
+            return not self.world.y
+        return bool(self.world.points_yes[clue_id])
+
     def _release_news(self, t: int) -> None:
-        for clue_id in np.flatnonzero(self.world.news_steps == t) + self.world.n_private:
-            seeds = self._news_rng.choice(
-                self.config.n_agents, size=self.config.n_news_seeds, replace=False
-            )
-            points_yes = bool(self.world.points_yes[clue_id])
+        """Hand each clue due at step t to `n_news_seeds` random agents as their own."""
+        news = (np.flatnonzero(self.world.news_steps == t) + self.world.n_private).tolist()
+        fakes = [self.fake_ids[j] for j in np.flatnonzero(self.fake_steps == t).tolist()]
+        for clue_id, rng in [(c, self._news_rng) for c in news] + [
+            (c, self._disinfo_rng) for c in fakes
+        ]:
+            seeds = rng.choice(self.config.n_agents, size=self.config.n_news_seeds, replace=False)
+            self.release_step[clue_id] = t
+            self.knowers[clue_id] = 0
             for index in seeds.tolist():
-                self.traders[index].learn_own(int(clue_id), points_yes)
-            if self.config.n_news_seeds:
-                self._known_real.add(int(clue_id))
+                if self.traders[index].learn_own(
+                    clue_id, self.points_yes(clue_id), spreadable=True
+                ):
+                    self._count_knower(clue_id, t)
+            if self.config.n_news_seeds and clue_id not in self.fake_ids:
+                self._known_real.add(clue_id)
+
+    def _spread(self, t: int) -> None:
+        """Each spreader tells each neighbor with chance beta; telling a knower stifles it."""
+        beta = self.config.beta
+        for trader in self.traders:
+            if not trader.spreading:
+                continue
+            neighbors = self.neighbors[trader.index]
+            for clue_id in sorted(trader.spreading):
+                told = self._clue_rng(clue_id).random(len(neighbors)) < beta
+                points_yes = self.points_yes(clue_id)
+                told_a_knower = False
+                for neighbor, was_told in zip(neighbors, told.tolist(), strict=True):
+                    if not was_told:
+                        continue
+                    if self.traders[neighbor].learn_heard(clue_id, points_yes):
+                        self._count_knower(clue_id, t)
+                    else:
+                        told_a_knower = True
+                if told_a_knower:
+                    trader.spreading.discard(clue_id)
+
+    def _clue_rng(self, clue_id: int) -> np.random.Generator:
+        if clue_id not in self._clue_rngs:
+            self._clue_rngs[clue_id] = np.random.default_rng([self._spread_seed, clue_id])
+        return self._clue_rngs[clue_id]
+
+    def _count_knower(self, clue_id: int, t: int) -> None:
+        self.knowers[clue_id] = self.knowers.get(clue_id, 0) + 1
+        if clue_id not in self.half_reach_step and 2 * self.knowers[clue_id] >= len(self.traders):
+            self.half_reach_step[clue_id] = t
 
     def _settle(self) -> None:
         self._closing_price = self.price

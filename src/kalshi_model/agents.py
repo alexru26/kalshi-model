@@ -105,6 +105,10 @@ class Trader(mesa.Agent):
 
         self.account = Account(cash=self.initial_cash, deposited=self.initial_cash)
         """Cash and position. In a CLOB run the model swaps in the order book's account."""
+        self.pending: set[int] = set()
+        """News or fake clues learned since the agent's last turn: not relayed yet."""
+        self.spreading: set[int] = set()
+        """Clues the agent is retelling to its neighbors (until it becomes a stifler)."""
         self._stale_since: dict[int, int] = {}
         """Resting order id -> the step on which the agent first saw it stale."""
         self.known: set[int] = set()
@@ -131,13 +135,35 @@ class Trader(mesa.Agent):
     def position(self, value: int) -> None:
         self.account.position = value
 
-    def learn_own(self, clue_id: int, points_yes: bool) -> None:
-        """See a clue directly. A clue already known is ignored."""
+    def learn_own(self, clue_id: int, points_yes: bool, *, spreadable: bool = False) -> bool:
+        """See a clue directly; return False if it was already known (then it is ignored).
+
+        Private clues are not `spreadable`; news and fakes delivered to a seed are, and
+        the agent relays them after its next turn.
+        """
         if clue_id in self.known:
-            return
+            return False
         self.known.add(clue_id)
         self.n_own += 1
         self.own_net += 1 if points_yes else -1
+        if spreadable:
+            self.pending.add(clue_id)
+        return True
+
+    def learn_heard(self, clue_id: int, points_yes: bool) -> bool:
+        """Hear a clue from a neighbor; return False if it was already known (ignored)."""
+        if clue_id in self.known:
+            return False
+        self.known.add(clue_id)
+        self.n_heard += 1
+        self.heard_net += 1 if points_yes else -1
+        self.pending.add(clue_id)
+        return True
+
+    def finish_turn(self) -> None:
+        """After trading, the agent starts retelling what it learned since its last turn."""
+        self.spreading |= self.pending
+        self.pending.clear()
 
     def belief(self, reference_price: float | None, imbalance: float, z: float) -> float:
         """This turn's belief, in log-odds."""

@@ -16,7 +16,9 @@ POST = 0.0  # u < patience: posts if it took nothing
 
 def one_trader(config=None, **traits):
     """(trader, book): one agent in an order book, plus an account 'other' to trade against."""
-    config = config or Config(n_agents=1, turns_per_step=1, n_news_seeds=0, n_clues_total=60)
+    config = config or Config(
+        n_agents=1, mean_degree=0, turns_per_step=1, n_news_seeds=0, n_clues_total=60
+    )
     defaults = {"market_trust": 1e-6, "kelly_frac": 0.5, "patience": 0.5}
     model = MarketModel(config, 0, traits=make_traits(1, **(defaults | traits)), debug=True)
     model.book.open_account("other", 10**8)
@@ -56,7 +58,8 @@ def test_taker_fee_can_remove_the_edge():
     assert trader.take_turn_clob(book, 0.0, TAKE, 1) == 0
     # Without fees the same edge is worth taking.
     trader, book = one_trader(
-        clob_config(n_agents=1, turns_per_step=1, n_news_seeds=0, n_clues_total=60), min_edge=1.5
+        clob_config(n_agents=1, mean_degree=0, turns_per_step=1, n_news_seeds=0, n_clues_total=60),
+        min_edge=1.5,
     )
     believe(trader, 1)
     book.submit("other", SELL, 51, 5)
@@ -150,7 +153,14 @@ def test_cancels_an_order_whose_edge_is_gone():
 
 
 def test_cancels_a_stale_order_only_after_it_sat_behind_long_enough():
-    config = Config(n_agents=1, turns_per_step=1, n_news_seeds=0, n_clues_total=60, stale_steps=20)
+    config = Config(
+        n_agents=1,
+        mean_degree=0,
+        turns_per_step=1,
+        n_news_seeds=0,
+        n_clues_total=60,
+        stale_steps=20,
+    )
     trader, book = one_trader(config, min_edge=3.0)
     believe(trader, 4)  # value 61.8: bids at 58
     book.submit("other", SELL, 70, 5)

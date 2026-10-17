@@ -113,7 +113,9 @@ def test_solvency_covers_both_outcomes():
 
 def one_trader(**traits):
     """A single-agent AMM market; returns (model, trader)."""
-    config = amm_config(n_agents=1, turns_per_step=1, n_news_seeds=0, n_steps=100, n_clues_total=60)
+    config = amm_config(
+        n_agents=1, mean_degree=0, turns_per_step=1, n_news_seeds=0, n_steps=100, n_clues_total=60
+    )
     model = MarketModel(config, seed=0, traits=make_traits(1, **traits), debug=True)
     return model, model.traders[0]
 

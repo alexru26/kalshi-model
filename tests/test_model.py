@@ -55,13 +55,23 @@ def test_population_world_and_news_are_shared_across_configurations():
     assert shallow.p_star == deep.p_star
 
 
-def test_news_reaches_exactly_the_seed_agents():
-    model = run(amm_config(n_steps=210, n_clues_total=62, n_news_seeds=7), 1)
+def test_without_a_network_news_reaches_exactly_the_seed_agents():
+    model = run(amm_config(n_steps=210, n_clues_total=62, n_news_seeds=7, mean_degree=0), 1)
     # Two news clues (ids 60, 61), released at steps 70 and 140.
     for clue_id in (60, 61):
         holders = [t for t in model.traders if clue_id in t.known]
         assert len(holders) == 7
+        assert all(t.n_heard == 0 for t in model.traders)
     assert {60, 61} <= model._known_real
+
+
+def test_news_spreads_from_its_seeds_over_the_network():
+    model = run(amm_config(n_steps=210, n_clues_total=62, n_news_seeds=7), 1)
+    for clue_id in (60, 61):
+        holders = [t for t in model.traders if clue_id in t.known]
+        assert len(holders) > 7
+        assert model.knowers[clue_id] == len(holders)
+    assert sum(t.n_heard for t in model.traders) > 0
 
 
 def test_news_with_no_seeds_is_known_to_nobody():
