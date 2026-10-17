@@ -15,8 +15,8 @@ act, it cancels its quotes and requotes both sides:
 Quotes are post-only: a quote that would cross an agent's resting order is moved one
 cent inside it, so the market maker never takes liquidity or pays taker fees. Past
 `mm_max_inventory` contracts long (short) it never goes: each quote that adds to its
-inventory is sized to the room left under the cap. It trades from
-its own order-book account, so it is held to the same collateral rules as agents.
+inventory is sized to the room left under the cap. It trades from its own order-book
+account, so it is held to the same collateral rules as agents.
 """
 
 from __future__ import annotations

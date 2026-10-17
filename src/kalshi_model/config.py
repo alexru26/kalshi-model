@@ -64,7 +64,7 @@ class Config:
     mm_decay: float = 0.9
     """Share of the extra half-spread kept from one step to the next."""
     mm_max_inventory: int = 200
-    """Beyond this many contracts long or short, the market maker quotes only to unwind."""
+    """Hard cap on the market maker's inventory, in contracts long or short."""
 
     # World (PLAN.md Section 2.4): M clues, each pointing to the truth with probability
     # q. The first K are the private pool; the other M - K are released as news.
