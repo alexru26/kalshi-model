@@ -36,7 +36,7 @@ Each entry has a one-sentence summary of why it matters for this project. Entrie
 ## Modeling
 
 - Gode, D., & Sunder, S. (1993). Allocative efficiency of markets with zero-intelligence traders. *Journal of Political Economy*, 101(1). Random budget-constrained traders already produce sensible prices; used only as a sanity-check population.
-- Othman, A. (2008). Zero-intelligence agents in prediction markets. *AAMAS*. Zero-intelligence agents with Beta-distributed beliefs trading single shares in a continuous double auction show a favorite-longshot bias (for example, a mean belief of 0.8 trades at 0.742 under diffuse beliefs); our replication check once the order book exists.
+- Othman, A. (2008). Zero-intelligence agents in prediction markets. *AAMAS*. Zero-intelligence agents with Beta-distributed beliefs trading single shares in a continuous double auction show a favorite-longshot bias (for example, a mean belief of 0.8 trades at 0.742 under diffuse beliefs); our order-book sanity check (`experiments/othman_check.py`).
 - Chakraborty, M., Das, S., & Peabody, J. (2015). Price evolution in a continuous double auction prediction market with a scoring-rule based market maker. *AAAI*. Combines an order book with an automated market maker in one simulation.
 - Arthur, W. B., Holland, J., LeBaron, B., Palmer, R., & Tayler, P. (1997). Asset pricing under endogenous expectations in an artificial stock market. *The Economy as an Evolving Complex System II*. Classic complex-systems market model with heterogeneous adaptive agents.
 - Grimm, V., et al. (2005). Pattern-oriented modeling of agent-based complex systems. *Science*, 310(5750). † Calibrate an ABM by matching several observed patterns at once; our calibration method.
