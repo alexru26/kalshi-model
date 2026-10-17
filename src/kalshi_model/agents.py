@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING
 
 import mesa
 
+from kalshi_model.fees import MICRO_PER_CENT, exact_fee
+from kalshi_model.orderbook import BUY, SELL, Account, OrderBook
 from kalshi_model.world import clue_log_odds, sigmoid
 
 if TYPE_CHECKING:
@@ -101,8 +103,10 @@ class Trader(mesa.Agent):
         self.g = float(traits.g[index])
         self.initial_cash = int(traits.cash[index])
 
-        self.cash = self.initial_cash
-        self.position = 0
+        self.account = Account(cash=self.initial_cash, deposited=self.initial_cash)
+        """Cash and position. In a CLOB run the model swaps in the order book's account."""
+        self._stale_since: dict[int, int] = {}
+        """Resting order id -> the step on which the agent first saw it stale."""
         self.known: set[int] = set()
         """Ids of every clue the agent knows, so each counts once."""
         self.own_net = 0
@@ -110,6 +114,22 @@ class Trader(mesa.Agent):
         self.n_own = 0
         self.heard_net = 0
         self.n_heard = 0
+
+    @property
+    def cash(self) -> int:
+        return self.account.cash
+
+    @cash.setter
+    def cash(self, value: int) -> None:
+        self.account.cash = value
+
+    @property
+    def position(self) -> int:
+        return self.account.position
+
+    @position.setter
+    def position(self, value: int) -> None:
+        self.account.position = value
 
     def learn_own(self, clue_id: int, points_yes: bool) -> None:
         """See a clue directly. A clue already known is ignored."""
@@ -179,8 +199,140 @@ class Trader(mesa.Agent):
                 hi = mid - 1
         return sign * lo
 
+    def take_turn_clob(self, book: OrderBook, z: float, u: float, step: int) -> int:
+        """One turn in the order book; return contracts taken (bought > 0, sold < 0).
+
+        The agent updates its belief, then tends its resting orders (cancelling those
+        no longer worth their edge or stuck behind the best quote), then takes any quote
+        that beats its value by more than `min_edge` after the taker fee. If it took
+        nothing, with probability `patience` (`u < patience`) it posts a resting order
+        priced `min_edge` inside its value, sized to the gap to its Kelly target.
+        """
+        config = self.model.config
+        reference = book.reference_price(config.spread_cap)
+        imbalance = book.imbalance(config.depth_window)
+        value = 100 * perceived_yes(self.belief(reference, imbalance, z), self.g)
+        self._tend_orders(book, value, step)
+        taken = self._take(book, value)
+        if taken == 0 and u < self.patience:
+            self._post(book, value, reference)
+        return taken
+
+    def _fee_per_contract(self, price: int, rate_bp: int) -> float:
+        return exact_fee(1, price, rate_bp) / MICRO_PER_CENT
+
+    def _tend_orders(self, book: OrderBook, value: float, step: int) -> None:
+        """Cancel orders whose edge fell below `min_edge` or that sat stale too long."""
+        config = self.model.config
+        open_ids = set()
+        for order in book.open_orders(self.index):
+            maker_fee = self._fee_per_contract(order.price, book.maker_fee_bp)
+            if order.side == BUY:
+                edge = value - order.price - maker_fee
+                behind = book.best_bid - order.price
+            else:
+                edge = order.price - value - maker_fee
+                behind = order.price - book.best_ask
+            if edge < self.min_edge:
+                book.cancel(order.order_id)
+                continue
+            if behind >= config.stale_ticks:
+                since = self._stale_since.setdefault(order.order_id, step)
+                if step - since >= config.stale_steps:
+                    book.cancel(order.order_id)
+                    continue
+            else:
+                self._stale_since.pop(order.order_id, None)
+            open_ids.add(order.order_id)
+        for order_id in set(self._stale_since) - open_ids:
+            del self._stale_since[order_id]
+
+    def _take(self, book: OrderBook, value: float) -> int:
+        """Buy or sell at once (immediate-or-cancel) if the best quote beats `min_edge`."""
+        rate = book.taker_fee_bp
+        best_ask, best_bid = book.best_ask, book.best_bid
+        if best_ask is not None and value - best_ask - self._fee_per_contract(best_ask, rate) > (
+            self.min_edge
+        ):
+            cost = (best_ask + self._fee_per_contract(best_ask, rate)) / 100
+            target = kelly_contracts(value / 100, cost, self.kelly_frac, self.cash)
+            wanted = target - self.position
+            # Highest price still worth paying, walking up the book.
+            limit = max(
+                x
+                for x in range(best_ask, 100)
+                if value - x - self._fee_per_contract(x, rate) > self.min_edge
+            )
+            return self._submit_largest(book, BUY, limit, wanted, ioc=True)
+        if best_bid is not None and best_bid - value - self._fee_per_contract(best_bid, rate) > (
+            self.min_edge
+        ):
+            cost = (100 - best_bid + self._fee_per_contract(best_bid, rate)) / 100
+            target = -kelly_contracts(1 - value / 100, cost, self.kelly_frac, self.cash)
+            wanted = self.position - target
+            limit = min(
+                x
+                for x in range(1, best_bid + 1)
+                if x - value - self._fee_per_contract(x, rate) > self.min_edge
+            )
+            return -self._submit_largest(book, SELL, limit, wanted, ioc=True)
+        return 0
+
+    def _post(self, book: OrderBook, value: float, reference: float | None) -> None:
+        """Rest an order `min_edge` (plus maker fee) inside value, never crossing the book."""
+        rate = book.maker_fee_bp
+        buy = value >= (50.0 if reference is None else 100 * reference)
+        resting = sum(
+            o.remaining for o in book.open_orders(self.index) if o.side == (BUY if buy else SELL)
+        )
+        if buy:
+            price = math.floor(value - self.min_edge)
+            while (
+                price >= 1 and value - price - self._fee_per_contract(price, rate) < self.min_edge
+            ):
+                price -= 1
+            if book.best_ask is not None:
+                price = min(price, book.best_ask - 1)
+            if not 1 <= price <= 99:
+                return
+            cost = (price + self._fee_per_contract(price, rate)) / 100
+            target = kelly_contracts(value / 100, cost, self.kelly_frac, self.cash)
+            self._submit_largest(book, BUY, price, target - self.position - resting, ioc=False)
+        else:
+            price = math.ceil(value + self.min_edge)
+            while (
+                price <= 99 and price - value - self._fee_per_contract(price, rate) < self.min_edge
+            ):
+                price += 1
+            if book.best_bid is not None:
+                price = max(price, book.best_bid + 1)
+            if not 1 <= price <= 99:
+                return
+            cost = (100 - price + self._fee_per_contract(price, rate)) / 100
+            target = -kelly_contracts(1 - value / 100, cost, self.kelly_frac, self.cash)
+            self._submit_largest(book, SELL, price, self.position - target - resting, ioc=False)
+
+    def _submit_largest(
+        self, book: OrderBook, side: str, price: int, wanted: int, *, ioc: bool
+    ) -> int:
+        """Submit the largest affordable order up to `wanted`; return contracts filled."""
+        lo, hi = 0, max(0, wanted)
+        while lo < hi:
+            mid = (lo + hi + 1) // 2
+            if book.can_submit(self.index, side, price, mid, ioc=ioc):
+                lo = mid
+            else:
+                hi = mid - 1
+        if lo == 0:
+            return 0
+        fills = book.submit(self.index, side, price, lo, ioc=ioc).fills
+        return sum(f.qty for f in fills)
+
     def settle(self, y: bool) -> None:
-        """Receive 100c per YES held if YES wins (pay it per YES short), then close out."""
+        """AMM settlement: receive 100c per YES held if YES wins (pay it per YES short).
+
+        In a CLOB run the order book settles the agent's account instead.
+        """
         if y:
             self.cash += 100 * self.position
         self.position = 0

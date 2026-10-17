@@ -118,6 +118,7 @@ class OrderBook:
         self._accounts: dict[Hashable, Account] = {}
         self._levels: dict[str, dict[int, OrderedDict[int, Order]]] = {BUY: {}, SELL: {}}
         self._orders: dict[int, Order] = {}
+        self._by_owner: dict[Hashable, dict[int, Order]] = {}
         self._ids = count(1)
         self.fills: list[Fill] = []
         self.fees_collected = 0
@@ -201,7 +202,7 @@ class OrderBook:
         return True
 
     def cancel_all(self, owner: Hashable) -> int:
-        orders = [o for o in self._orders.values() if o.owner == owner]
+        orders = self.open_orders(owner)
         for order in orders:
             self._remove(order)
         return len(orders)
@@ -214,7 +215,7 @@ class OrderBook:
         return len(orders)
 
     def open_orders(self, owner: Hashable) -> list[Order]:
-        return [o for o in self._orders.values() if o.owner == owner]
+        return list(self._by_owner.get(owner, {}).values())
 
     # Market data
 
@@ -301,6 +302,9 @@ class OrderBook:
                 raise InvariantError(f"account {owner!r} reserves do not match its orders")
             if account.free_cash < 0 or account.free_yes_cover < 0:
                 raise InvariantError(f"account {owner!r} is not fully collateralized")
+        indexed = {oid for orders in self._by_owner.values() for oid in orders}
+        if indexed != set(self._orders):
+            raise InvariantError("the per-owner order index does not match the book")
         bid, ask = self.best_bid, self.best_ask
         if bid is not None and ask is not None and bid >= ask:
             raise InvariantError(f"the book is crossed: bid {bid} >= ask {ask}")
@@ -438,6 +442,7 @@ class OrderBook:
             account.ask_reserve += order.reserve
         self._levels[order.side].setdefault(order.price, OrderedDict())[order.order_id] = order
         self._orders[order.order_id] = order
+        self._by_owner.setdefault(order.owner, {})[order.order_id] = order
 
     def _remove(self, order: Order) -> None:
         account = self._accounts[order.owner]
@@ -454,6 +459,7 @@ class OrderBook:
         if not queue:
             del self._levels[order.side][order.price]
         del self._orders[order.order_id]
+        del self._by_owner[order.owner][order.order_id]
 
 
 def _whole_number(name: str, value: object) -> int:

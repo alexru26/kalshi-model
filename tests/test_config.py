@@ -2,7 +2,7 @@ from dataclasses import FrozenInstanceError, asdict, replace
 
 import pytest
 
-from kalshi_model.config import Config, amm_config
+from kalshi_model.config import Config, amm_config, clob_config
 
 
 def test_defaults_match_plan():
@@ -69,6 +69,12 @@ def test_fields_are_keyword_only():
         {"g_low": 0.9, "g_high": 0.8},
         {"g_high": 1.2},
         {"n_clues_mean": "20"},
+        {"mm_size": 0},
+        {"mm_alpha": 1.5},
+        {"mm_decay": 1.0},
+        {"mm_half_spread": 12.0},
+        {"spread_cap": 0},
+        {"mm_cash": -1},
     ],
 )
 def test_invalid_values_are_rejected(overrides):
@@ -85,3 +91,9 @@ def test_amm_config_is_the_fee_free_lmsr():
 
 def test_float_parameters_accept_integers():
     assert Config(lmsr_b=50).lmsr_b == 50
+
+
+def test_clob_config_is_the_fee_free_order_book():
+    config = clob_config()
+    assert (config.mechanism, config.taker_fee_bp, config.maker_fee_bp) == ("clob", 0, 0)
+    assert Config().mechanism == "clob" and Config().taker_fee_bp == 700

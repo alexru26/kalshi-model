@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from conftest import make_traits
 
-from kalshi_model.config import Config, amm_config
+from kalshi_model.config import Config, amm_config, clob_config
 from kalshi_model.model import InvariantError, MarketModel
 
 
@@ -18,11 +18,6 @@ def run(config: Config, seed: int, **kwargs) -> MarketModel:
 def default_runs():
     """Default AMM population on 16 seeds."""
     return [run(amm_config(), seed) for seed in range(16)]
-
-
-def test_clob_is_not_built_yet():
-    with pytest.raises(NotImplementedError):
-        MarketModel(Config(), 0)
 
 
 def test_amm_rejects_fees():
@@ -150,3 +145,81 @@ def test_informed_agents_earn_more_than_uninformed(default_runs):
         n_clues = model.traits.n_clues
         gaps.append(pnl[n_clues >= 30].mean() - pnl[n_clues == 0].mean())
     assert np.mean(gaps) > 0
+
+
+# The order book (Step 5)
+
+
+@pytest.fixture(scope="module")
+def kalshi_runs():
+    """Default Kalshi market (CLOB with Kalshi fees) on 8 seeds, invariants checked each step."""
+    return [run(Config(), seed) for seed in range(8)]
+
+
+def test_kalshi_runs_keep_everyone_solvent_and_conserve_money(kalshi_runs):
+    for model in kalshi_runs:
+        book = model.book
+        assert all(a.cash >= 0 and a.position == 0 for a in book.accounts.values())
+        agents = sum(t.pnl for t in model.traders)
+        maker = model.market_maker.account.cash - model.config.mm_cash
+        assert agents + maker + book.fees_collected == 0
+        assert book.fees_collected > 0
+
+
+def test_market_maker_keeps_quoting_and_empty_book_steps_are_rare(kalshi_runs):
+    for model in kalshi_runs:
+        df = model.datacollector.get_model_vars_dataframe()
+        assert df.mm_quoting.mean() > 0.99
+        assert model.empty_book_steps == df.empty_book.sum()
+        assert model.empty_book_steps < 0.02 * model.config.n_steps
+        assert df.price.notna().all()
+
+
+def test_kalshi_price_moves_toward_p_star(kalshi_runs):
+    finals = np.array([[m.price, m.p_star] for m in kalshi_runs])
+    logit = np.log(finals / (1 - finals))
+    assert np.polyfit(logit[:, 1], logit[:, 0], 1)[0] > 0.05
+    errors = [
+        np.abs(df.price - df.p_star).mean()
+        for df in (m.datacollector.get_model_vars_dataframe().iloc[1000:] for m in kalshi_runs)
+    ]
+    fifty = [
+        np.abs(0.5 - df.p_star).mean()
+        for df in (m.datacollector.get_model_vars_dataframe().iloc[1000:] for m in kalshi_runs)
+    ]
+    assert np.mean(errors) < np.mean(fifty)
+
+
+def test_fee_free_book_collects_nothing_and_trades_more():
+    kalshi = run(Config(n_steps=600, n_clues_total=70), 4)
+    fee_free = run(clob_config(n_steps=600, n_clues_total=70), 4)
+    assert fee_free.book.fees_collected == 0
+    assert fee_free.datacollector.get_model_vars_dataframe().volume.sum() > (
+        kalshi.datacollector.get_model_vars_dataframe().volume.sum()
+    )
+
+
+def test_all_three_markets_share_the_seed_population_world_and_news():
+    runs = [
+        run(config, 6)
+        for config in (
+            Config(n_steps=300, n_clues_total=65),
+            clob_config(n_steps=300, n_clues_total=65),
+            amm_config(n_steps=300, n_clues_total=65),
+        )
+    ]
+    first = runs[0]
+    for other in runs[1:]:
+        assert other.world.y == first.world.y
+        assert np.array_equal(other.traits.cash, first.traits.cash)
+        assert [t.known for t in other.traders] == [t.known for t in first.traders]
+
+
+def test_clob_invariant_check_catches_an_off_ledger_trader():
+    model = MarketModel(Config(n_steps=50, n_clues_total=70), 0, debug=True)
+    model.step()
+    from kalshi_model.orderbook import Account
+
+    model.traders[3].account = Account(cash=model.traders[3].cash)
+    with pytest.raises(InvariantError):
+        model.check_invariants()
