@@ -97,7 +97,14 @@ def measure(models: list[MarketModel]) -> dict:
 
 
 def evaluate(patterns: dict, target: dict) -> dict:
-    """Which patterns are met, and a distance to rank configurations (0 is a perfect fit)."""
+    """Which patterns are met, and whether every required one is.
+
+    `size_error`, `spread_error`, and their sum `distance` (0 is a perfect fit) describe
+    how closely a setting matches Kalshi's trade sizes and spread; they are reported in
+    results/calibration.csv but not used for acceptance or selection. Acceptance uses
+    the `met` flags of the required patterns, and the frozen pick is the most central
+    accepted candidate.
+    """
     size_error = float(
         np.mean([abs(math.log(patterns["sizes"][q] / target["sizes"][q])) for q in SIZE_QUANTILES])
     )

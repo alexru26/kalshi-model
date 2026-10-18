@@ -135,6 +135,8 @@ def main(n_candidates: int, n_search: int, n_check: int) -> None:
             f"informed={row['informed_pnl']:.1f} uninformed={row['uninformed_pnl']:.1f}"
         )
     print(f"frozen candidate: {frozen}; wrote {RESULTS}")
+    if frozen is None:
+        raise SystemExit("no central candidate met every required pattern on fresh seeds")
 
 
 if __name__ == "__main__":
