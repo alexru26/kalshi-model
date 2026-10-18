@@ -27,6 +27,66 @@ from kalshi_model.rng import make_streams
 from kalshi_model.traits import Traits, draw_traits
 from kalshi_model.world import deal_private_clues, make_world, news_schedule
 
+# Per-step reporters are module-level functions, not lambdas, so models pickle (Mesa's
+# batch_run and multiprocessing send them between processes).
+
+
+def _price(m: MarketModel) -> float:
+    return m.price
+
+
+def _p_star(m: MarketModel) -> float:
+    return m.p_star
+
+
+def _volume(m: MarketModel) -> int:
+    return m.volume
+
+
+def _best_bid(m: MarketModel) -> int | None:
+    return m.book.best_bid
+
+
+def _best_ask(m: MarketModel) -> int | None:
+    return m.book.best_ask
+
+
+def _spread(m: MarketModel) -> int | None:
+    return m.book.spread
+
+
+def _depth(m: MarketModel) -> int:
+    return m.book.depth(BUY, m.config.depth_window) + m.book.depth(SELL, m.config.depth_window)
+
+
+def _empty_book(m: MarketModel) -> bool:
+    return m.book.best_bid is None or m.book.best_ask is None
+
+
+def _mm_position(m: MarketModel) -> int:
+    return m.market_maker.account.position
+
+
+def _mm_half_spread(m: MarketModel) -> float:
+    return m.market_maker.half_spread
+
+
+def _mm_quoting(m: MarketModel) -> bool:
+    return m.market_maker.bid is not None and m.market_maker.ask is not None
+
+
+COMMON_REPORTERS = {"price": _price, "p_star": _p_star, "volume": _volume}
+CLOB_REPORTERS = {
+    "best_bid": _best_bid,
+    "best_ask": _best_ask,
+    "spread": _spread,
+    "depth": _depth,
+    "empty_book": _empty_book,
+    "mm_position": _mm_position,
+    "mm_half_spread": _mm_half_spread,
+    "mm_quoting": _mm_quoting,
+}
+
 
 class InvariantError(AssertionError):
     """A conservation invariant failed: the accounting has a bug."""
@@ -106,27 +166,9 @@ class MarketModel(mesa.Model):
         self.empty_book_steps = 0
         """CLOB steps that ended with no bid or no offer in the book."""
 
-        reporters = {
-            "price": lambda m: m.price,
-            "p_star": lambda m: m.p_star,
-            "volume": lambda m: m.volume,
-        }
+        reporters = dict(COMMON_REPORTERS)
         if self.book is not None:
-            reporters |= {
-                "best_bid": lambda m: m.book.best_bid,
-                "best_ask": lambda m: m.book.best_ask,
-                "spread": lambda m: m.book.spread,
-                "depth": lambda m: (
-                    m.book.depth(BUY, m.config.depth_window)
-                    + m.book.depth(SELL, m.config.depth_window)
-                ),
-                "empty_book": lambda m: m.book.best_bid is None or m.book.best_ask is None,
-                "mm_position": lambda m: m.market_maker.account.position,
-                "mm_half_spread": lambda m: m.market_maker.half_spread,
-                "mm_quoting": lambda m: (
-                    m.market_maker.bid is not None and m.market_maker.ask is not None
-                ),
-            }
+            reporters |= CLOB_REPORTERS
         self.datacollector = mesa.DataCollector(model_reporters=reporters)
 
     @property

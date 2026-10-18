@@ -200,13 +200,12 @@ def test_kalshi_price_moves_toward_p_star(kalshi_runs):
     assert np.mean(errors) < np.mean(fifty)
 
 
-def test_fee_free_book_collects_nothing_and_trades_more():
+def test_fee_free_book_collects_nothing():
+    # Whether fees cut volume is an E1 result (Step 8), not a model rule.
     kalshi = run(Config(n_steps=600, n_clues_total=70), 4)
     fee_free = run(clob_config(n_steps=600, n_clues_total=70), 4)
     assert fee_free.book.fees_collected == 0
-    assert fee_free.datacollector.get_model_vars_dataframe().volume.sum() > (
-        kalshi.datacollector.get_model_vars_dataframe().volume.sum()
-    )
+    assert kalshi.book.fees_collected > 0
 
 
 def test_all_three_markets_share_the_seed_population_world_and_news():
