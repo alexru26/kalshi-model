@@ -23,7 +23,7 @@ Every configuration runs on the same 100 seeds, so comparisons are paired run by
 - CLOB to Kalshi: what Kalshi's fee rules change.
 - *Predictions:* the fee creates a no-trade band widest at 50c, so prices near 50c react more slowly to small news; fees cut volume much more than accuracy; Kalshi's free maker orders push patient agents to post resting orders, and makers out-earn takers (as Burgi et al. find on real Kalshi data).
 
-**E2. Information spread (8 configurations).** One variable at a time around the default:
+**E2. Information spread (8 configurations).** One variable at a time around the default (distortion is paired against the same network without disinformation, so each network also runs at ratio 0):
 - *Network sweep:* 5 networks at disinformation ratio 0.1 (Section 2.4).
 - *Disinformation sweep:* ratios 0, 0.05, 0.1, 0.2 on Holme-Kim, i.e. exactly 0, 1, 2, 4 fakes added to the 20 real news clues. A real clue pushes toward the truth by `2q - 1 = 0.06` on average and a fake pushes 1 against it, so at ratio 0.06 the news stream carries no net signal: 0.05 sits just below that break-even point, and 0.1 and 0.2 go past it as stress tests.
 - *Predictions:* well-connected agents trade earlier and earn more (Ozsoylev et al. 2014); echo chambers sustain the largest disinformation distortion; distortion grows faster than the ratio, because agents who follow the price amplify a rumor once it moves the price.
@@ -136,7 +136,7 @@ Starting defaults: 300 agents, T = 2000 steps, 100 seeds per configuration (neve
 |---|---|
 | Aggregation error `|price - P*|` over time | Did the market use the information it had? |
 | Brier score of the final price | Was the forecast right? |
-| Reaction half-life: steps until the gap to the new `P*` halves after a news release | How fast is news priced in? |
+| News response: the price move toward a news clue over the 90 steps after release, and its half-life, the steps until the mean move reaches half that size (the price stays short of `P*`, so the gap to `P*` itself rarely halves) | How fast is news priced in? |
 | Volume, spread, depth; no-trade and empty-book steps | Liquidity; did the market freeze? |
 | Fees paid, by informedness and maker/taker | Who bears the fee? |
 | P&L by `n_clues`, network position, and maker/taker | Who wins? |
@@ -163,7 +163,7 @@ Market mechanics (`fees.py`, `lmsr.py`, `orderbook.py`) are plain Python with no
 5. **CLOB markets.** Market-maker component, agent cancel rules, Kalshi fees. *Done when* the market maker and agents stay solvent over T steps and empty-book steps are rare and reported (`experiments/clob_check.py`).
 6. **Information layer.** Networks, spreading with trade-before-telling and stiflers, disinformation source. *Done when* a clue reaches everyone within the network diameter at `beta = 1` (with every agent trading each step, an agent at distance d learns it exactly d steps after release). `experiments/information_check.py` reports spread speed and distortion.
 7. **Calibrate and freeze defaults.** Pattern-oriented tuning of the trait distributions (except `g`, and leaving informedness, `w_hearsay`, and `w_depth` as set) and the market maker against the Section 2.2 patterns, with real targets fetched from Kalshi's public API (`data/fetch_kalshi_patterns.py`), a rejection search (`experiments/calibrate.py`, results in `results/calibration.csv`): a Latin hypercube of candidates, keeping every one that meets the patterns, since pattern-oriented modeling finds a region of settings rather than one best point; the most central accepted setting that also passes on fresh seeds is frozen, and a spread-out set of accepted settings is kept for Step 11, and a check of the frozen values (`experiments/validate_defaults.py`). *Done when* the defaults are frozen in `Config`.
-8. **Run E1 and E2.** Predictions written first.
+8. **Run E1 and E2.** Predictions written first (`PREDICTIONS.md`), then `experiments/e1_rules.py` and `experiments/e2_information.py` write one row per run to `results/*.csv`. *Done when* every run passes the invariants and `RESULTS.md` reports each prediction against the data.
 9. **Manipulator; run E3.** Pump-and-dump and spoofing layers, honest twin. *Done when* invariants hold with the manipulator present.
 10. **Kalshi calibration check** (Section 3), including the `g = 1` rerun.
 11. **Robustness.** Rerun the key paired comparisons of E1 to E3 on the spread-out ensemble of accepted calibrations from Step 7 and report, for each effect, how often its sign holds (appendix figure).
