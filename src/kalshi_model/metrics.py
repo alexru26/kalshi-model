@@ -224,13 +224,25 @@ def _market(model: MarketModel, df) -> dict[str, float]:
     }
 
 
+def degree_quarters(model: MarketModel) -> tuple[np.ndarray, np.ndarray]:
+    """Indices of the best- and worst-connected quarters of agents: exactly
+    `n_agents // 4` each, disjoint, ranked by degree with ties broken by agent index.
+
+    Agents sit on nodes at random and their traits are i.i.d. per index, so breaking
+    ties by index is unbiased.
+    """
+    degree = np.array([len(n) for n in model.neighbors])
+    order = np.argsort(degree, kind="stable")
+    quarter = len(degree) // 4
+    return order[len(order) - quarter :], order[:quarter]
+
+
 def _network(model: MarketModel) -> dict[str, float]:
     """News spread speed, and how soon and how well the best- and worst-connected
-    quarters of agents learn news and trade."""
+    quarters of agents (see `degree_quarters`) learn news and trade."""
     news = [c for c in model.release_step if c not in model.fake_ids]
     reach = [model.half_reach_step.get(c, math.inf) - model.release_step[c] for c in news]
     finite = [r for r in reach if math.isfinite(r)]
-    degree = np.array([len(n) for n in model.neighbors])
     delay = np.full(len(model.traders), math.nan)
     for i in range(len(model.traders)):
         waits = [
@@ -241,8 +253,7 @@ def _network(model: MarketModel) -> dict[str, float]:
         if waits:
             delay[i] = np.mean(waits)
     pnl = np.array([t.pnl for t in model.traders]) / 100
-    top = degree >= np.quantile(degree, 0.75)
-    bottom = degree <= np.quantile(degree, 0.25)
+    top, bottom = degree_quarters(model)
     return {
         "half_reach": _mean(finite),
         "half_reach_never": float(1 - len(finite) / len(reach)) if reach else math.nan,

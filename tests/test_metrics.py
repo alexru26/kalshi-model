@@ -7,6 +7,7 @@ from kalshi_model.config import Config, amm_config
 from kalshi_model.metrics import (
     NEWS_WINDOW,
     RESPONSE_LAGS,
+    degree_quarters,
     fill_values,
     half_life,
     news_events,
@@ -115,3 +116,20 @@ def test_unfinished_run_is_rejected():
     model.step()
     with pytest.raises(ValueError):
         run_metrics(model)
+
+
+def test_degree_quarters_are_disjoint_quarters_when_degrees_tie():
+    model = MarketModel(Config(network="watts_strogatz", ws_rewire=0.0), 0)
+    assert len({len(n) for n in model.neighbors}) == 1
+    top, bottom = degree_quarters(model)
+    quarter = model.config.n_agents // 4
+    assert len(top) == len(set(top)) == quarter
+    assert len(bottom) == len(set(bottom)) == quarter
+    assert not set(top) & set(bottom)
+
+
+def test_degree_quarters_rank_agents_by_degree():
+    model = MarketModel(Config(network="barabasi_albert"), 0)
+    degree = np.array([len(n) for n in model.neighbors])
+    top, bottom = degree_quarters(model)
+    assert degree[top].min() >= degree[bottom].max()
