@@ -112,6 +112,10 @@ class Config:
     depth_alpha: float = 1.0
     depth_beta: float = 9.0
     noise_scale: float = 0.054
+    """Half-normal scale of belief noise for an agent with no private clues."""
+    noise_delta: float = 0.0
+    """Belief noise falls by a factor exp(-noise_delta) per private clue: retail traders'
+    beliefs are noisier (noise traders, Black 1986; PLAN.md Section 2.2)."""
     min_edge_scale: float = 1.44
     """Half-normal scale of `min_edge`, in cents."""
     patience_mu: float = -0.2
@@ -153,8 +157,8 @@ class Config:
         )
         non_negative = (
             "taker_fee_bp maker_fee_bp n_private n_news_seeds hearsay_gamma hearsay_sigma "
-            "noise_scale min_edge_scale patience_delta patience_sigma cash_sigma activity_sigma "
-            "depth_window mm_cash mm_skew mm_widen mm_decay"
+            "noise_scale noise_delta min_edge_scale patience_delta patience_sigma cash_sigma "
+            "activity_sigma depth_window mm_cash mm_skew mm_widen mm_decay"
         )
         for name in positive.split():
             if not getattr(self, name) > 0:

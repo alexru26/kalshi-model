@@ -2,8 +2,9 @@
 
 Each trait is drawn from its own child of the run's "traits" stream, so changing one
 trait's distribution never changes another trait's draws. Bounded traits use bounded
-distributions, so nothing is clipped. The only links between traits are the three to
-informedness: `w_hearsay` falls and `patience` and `cash` rise with `n_clues`. The cash
+distributions, so nothing is clipped. The only links between traits are the four to
+informedness: `w_hearsay` and `noise` fall and `patience` and `cash` rise with `n_clues`. The noise
+link scales each agent's drawn noise, so it uses no extra draws. The cash
 link reassigns the drawn cash amounts among agents (a Gaussian copula with correlation
 `cash_rho`), so the cash distribution itself does not change, and it draws from a
 separate child stream spawned after the traits' own, so every other trait is unchanged.
@@ -88,7 +89,9 @@ def draw_traits(config: Config, rng: np.random.Generator) -> Traits:
         config.market_trust_shape, config.market_trust_scale, n
     )
     w_depth = streams["w_depth"].beta(config.depth_alpha, config.depth_beta, n)
-    noise = np.abs(streams["noise"].normal(0.0, config.noise_scale, n))
+    noise = np.abs(streams["noise"].normal(0.0, config.noise_scale, n)) * np.exp(
+        -config.noise_delta * n_clues
+    )
     min_edge = np.abs(streams["min_edge"].normal(0.0, config.min_edge_scale, n))
     patience = _logit_normal(
         streams["patience"],

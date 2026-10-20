@@ -142,3 +142,15 @@ def test_cash_link_only_reassigns_cash_and_leaves_other_traits_unchanged():
 def test_cash_rho_must_lie_strictly_inside_minus_one_to_one(rho):
     with pytest.raises(ValueError):
         Config(cash_rho=rho)
+
+
+def test_noise_falls_with_informedness_by_noise_delta():
+    config = Config(n_agents=20_000, turns_per_step=1)
+    flat = draw(config, seed=2)
+    linked = draw(replace(config, noise_delta=0.06), seed=2)
+    assert np.allclose(linked.noise, flat.noise * np.exp(-0.06 * flat.n_clues))
+    none, many = linked.n_clues == 0, linked.n_clues >= 30
+    assert linked.noise[many].mean() < 0.2 * linked.noise[none].mean()
+    for name in TRAIT_NAMES:
+        if name != "noise":
+            assert np.array_equal(getattr(linked, name), getattr(flat, name))

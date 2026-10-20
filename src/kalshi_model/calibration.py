@@ -172,7 +172,8 @@ SPACE = (
     Dimension("cash_median", 20_000, 1_000_000, log=True, integer=True),
     Dimension("cash_sigma", 0.5, 2.5),
     Dimension("kelly_mean", 0.05, 0.5),
-    Dimension("noise_scale", 0.03, 0.3, log=True),
+    Dimension("noise_scale", 0.03, 1.5, log=True),
+    Dimension("noise_delta", 0.0, 0.12),
     Dimension("min_edge_scale", 0.3, 5.0, log=True),
     Dimension("patience_mu", -3.0, 2.0),
     Dimension("market_trust_scale", 1.0, 60.0, log=True),
@@ -181,8 +182,8 @@ SPACE = (
     Dimension("mm_size", 3, 100, log=True, integer=True),
     Dimension("mm_half_spread", 0.5, 4.0),
 )
-"""The calibrated settings and their prior ranges (`market_trust_scale` widened and
-`cash_rho` added in Step 8b). Kelly fractions are Beta(10m, 10(1-m))
+"""The calibrated settings and their prior ranges (Step 8b widened `market_trust_scale`
+and `noise_scale` and added `cash_rho` and `noise_delta`). Kelly fractions are Beta(10m, 10(1-m))
 for a searched mean m. Not searched: g (lab estimates), informedness (Step 3), and
 w_hearsay and w_depth (no data anchor)."""
 KELLY_CONCENTRATION = 10.0
