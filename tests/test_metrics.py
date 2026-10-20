@@ -24,16 +24,16 @@ def run(config: Config, seed: int = 0) -> MarketModel:
 
 @pytest.fixture(scope="module")
 def kalshi_run():
-    """A short Kalshi run: 20 news clues over 300 steps, so several windows fit."""
-    return run(Config(n_steps=300), 4)
+    """A short Kalshi run: 20 news clues over 800 steps, so several windows fit."""
+    return run(Config(n_steps=800), 4)
 
 
 # Half-life of a response curve
 
 
 def test_half_life_interpolates_between_lags():
-    linear = np.array(RESPONSE_LAGS, dtype=float)  # reaches 45 (half of 90) at lag 45
-    assert half_life(linear) == pytest.approx(45.0)
+    linear = np.array(RESPONSE_LAGS, dtype=float)  # reaches half its end value halfway
+    assert half_life(linear) == pytest.approx(NEWS_WINDOW / 2)
     step = np.where(np.array(RESPONSE_LAGS) >= 30, 1.0, 0.0)  # 0 at lag 25, 1 at lag 30
     assert half_life(step) == pytest.approx(27.5)
 
@@ -70,9 +70,9 @@ def test_news_events_measure_the_signed_move_from_the_step_before_release(kalshi
 
 
 def test_fakes_are_not_news_events():
-    clean = news_events(run(Config(n_steps=300), 4))
-    dirty = news_events(run(Config(n_steps=300, disinfo_ratio=0.2), 4))
-    assert len(clean) == len(dirty)
+    clean = news_events(run(Config(n_steps=800), 4))
+    dirty = news_events(run(Config(n_steps=800, disinfo_ratio=0.2), 4))
+    assert len(clean) == len(dirty) > 0
     assert [e["p_star_jump"] for e in clean] == [e["p_star_jump"] for e in dirty]
 
 

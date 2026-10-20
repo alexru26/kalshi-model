@@ -9,6 +9,7 @@ from kalshi_model.calibration import (
     SIZE_QUANTILES,
     SPACE,
     Dimension,
+    calibration_slope,
     central_order,
     config_overrides,
     evaluate,
@@ -38,6 +39,7 @@ def patterns(**overrides):
         "agent_gap": 0.12,
         "informed_pnl": 5.0,
         "uninformed_pnl": -1.0,
+        "calibration_slope": 1.0,
     }
     return base | overrides
 
@@ -64,11 +66,36 @@ def test_spread_band(spread, met):
     assert evaluate(patterns(spread=spread), TARGET)["met"]["spread"] is met
 
 
-def test_price_accuracy_against_agents_is_reported_but_not_required():
+def test_the_price_must_beat_the_agents_own_judgment():
     result = evaluate(patterns(price_brier=0.23), TARGET)
     assert not result["met"]["beats_agents"]
-    assert result["accepted"]
+    assert not result["accepted"]
     assert evaluate(patterns(), TARGET)["met"]["beats_agents"]
+
+
+@pytest.mark.parametrize(
+    ("slope", "met"),
+    [(0.7, False), (0.8, True), (1.0, True), (1.25, True), (1.4, False), (4.5, False)],
+)
+def test_the_price_must_be_calibrated(slope, met):
+    # 4.5 is the compressed Step 8 price; below 0.8 the price is overconfident.
+    result = evaluate(patterns(calibration_slope=slope), TARGET)
+    assert result["met"]["calibrated"] is met
+    assert result["accepted"] is met
+
+
+def test_calibration_slope_is_the_regression_of_p_star_on_the_price():
+    def logit(p):
+        return math.log(p / (1 - p))
+
+    def sigmoid(x):
+        return 1 / (1 + math.exp(-x))
+
+    # P* twice as far from 50c as the price in log-odds: an underconfident price.
+    prices = [0.3, 0.45, 0.5, 0.6, 0.7]
+    pairs = [(p, sigmoid(2 * logit(p))) for p in prices]
+    assert calibration_slope(pairs) == pytest.approx(2.0)
+    assert calibration_slope([(p, p) for p in prices]) == pytest.approx(1.0)
 
 
 @pytest.mark.parametrize(
@@ -108,6 +135,7 @@ def test_measure_reads_patterns_off_finished_runs():
     assert 0 <= measured["empty_share"] <= 1
     assert all(measured["sizes"][q] >= 1 for q in SIZE_QUANTILES)
     assert 0 <= measured["price_brier"] <= 1 and 0 <= measured["agent_brier"] <= 1
+    assert math.isfinite(measured["calibration_slope"])
     assert math.isfinite(measured["informed_pnl"]) and math.isfinite(measured["uninformed_pnl"])
 
 

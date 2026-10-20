@@ -109,3 +109,36 @@ def test_mismatched_lengths_are_rejected():
     arrays["g"] = arrays["g"][:-1]
     with pytest.raises(ValueError):
         Traits(**arrays)
+
+
+def rank_correlation(a: np.ndarray, b: np.ndarray) -> float:
+    return float(np.corrcoef(a.argsort().argsort(), b.argsort().argsort())[0, 1])
+
+
+def test_cash_rises_with_informedness_by_cash_rho():
+    config = Config(n_agents=20_000, turns_per_step=1)
+    unlinked = draw(config, seed=1)
+    linked = draw(replace(config, cash_rho=0.8), seed=1)
+    # A Gaussian copula with correlation 0.8 has rank correlation (6 / pi) asin(0.4), about
+    # 0.79; ties in n_clues (40% hold none) pull the measured value somewhat below it.
+    assert 0.65 < rank_correlation(linked.n_clues, linked.cash) < 0.79
+    assert abs(rank_correlation(unlinked.n_clues, unlinked.cash)) < 0.03
+    none, top = linked.n_clues == 0, linked.n_clues >= np.quantile(linked.n_clues, 0.9)
+    assert np.median(linked.cash[top]) > 5 * np.median(linked.cash[none])
+
+
+def test_cash_link_only_reassigns_cash_and_leaves_other_traits_unchanged():
+    config = Config()
+    unlinked = draw(config, seed=3)
+    linked = draw(replace(config, cash_rho=0.5), seed=3)
+    assert np.array_equal(np.sort(linked.cash), np.sort(unlinked.cash))
+    assert not np.array_equal(linked.cash, unlinked.cash)
+    for name in TRAIT_NAMES:
+        if name != "cash":
+            assert np.array_equal(getattr(linked, name), getattr(unlinked, name))
+
+
+@pytest.mark.parametrize("rho", [-1.0, 1.0, 1.5])
+def test_cash_rho_must_lie_strictly_inside_minus_one_to_one(rho):
+    with pytest.raises(ValueError):
+        Config(cash_rho=rho)

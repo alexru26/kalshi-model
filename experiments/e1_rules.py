@@ -43,7 +43,7 @@ def per_config_table(results: dict) -> None:
         ("error_late", "same, second half (c)"),
         ("brier", "final Brier"),
         ("aggregation_loss", "final (price - P*)^2"),
-        (END, "news move by lag 90 (c)"),
+        (END, f"news move by lag {NEWS_WINDOW} (c)"),
         ("p_star_jump", "P* jump per news (c)"),
         ("volume", "volume (contracts)"),
         ("no_trade_share", "no-trade steps"),
@@ -74,7 +74,7 @@ def predictions(results: dict) -> None:
         return fmt(*paired(results, metric, a, b), digits)
 
     print("\nE1.1 fee slows news pricing, most near 50c (Kalshi - CLOB)")
-    print(f"  news move by lag 90 (c):         {diff(END, 'clob', 'kalshi')}")
+    print(f"  news move by lag {NEWS_WINDOW} (c):         {diff(END, 'clob', 'kalshi')}")
     print(f"    news arriving at 40-60c:       {diff('response_near50', 'clob', 'kalshi')}")
     print(f"    news arriving outside 40-60c:  {diff('response_far', 'clob', 'kalshi')}")
 
@@ -129,7 +129,7 @@ def predictions(results: dict) -> None:
     print("\nE1.6 the AMM prices news fastest (AMM - CLOB)")
     hl = bootstrap(results, ["clob", "amm"], lambda c, a: curve_half_life(a) - curve_half_life(c))
     print(f"  half-life difference (steps): {fmt_boot(*hl)}")
-    print(f"  news move by lag 90 (c):      {diff(END, 'clob', 'amm')}")
+    print(f"  news move by lag {NEWS_WINDOW} (c):      {diff(END, 'clob', 'amm')}")
     lmsr = [r["maker_pnl"] for r in results["amm"].values()]
     print(f"  LMSR P&L ($):                 {fmt(*mean_ci(lmsr), 2)}")
 

@@ -2,11 +2,15 @@
 
 Each trait is drawn from its own child of the run's "traits" stream, so changing one
 trait's distribution never changes another trait's draws. Bounded traits use bounded
-distributions, so nothing is clipped. The only links between traits are the two to
-informedness: `w_hearsay` falls and `patience` rises with `n_clues`.
+distributions, so nothing is clipped. The only links between traits are the three to
+informedness: `w_hearsay` falls and `patience` and `cash` rise with `n_clues`. The cash
+link reassigns the drawn cash amounts among agents (a Gaussian copula with correlation
+`cash_rho`), so the cash distribution itself does not change, and it draws from a
+separate child stream spawned after the traits' own, so every other trait is unchanged.
 """
 
 from dataclasses import dataclass, fields
+from statistics import NormalDist
 
 import numpy as np
 
@@ -98,6 +102,9 @@ def draw_traits(config: Config, rng: np.random.Generator) -> Traits:
     cash = np.maximum(
         1, np.rint(streams["cash"].lognormal(np.log(config.cash_median), config.cash_sigma, n))
     ).astype(np.int64)
+    if config.cash_rho:
+        (link,) = rng.spawn(1)  # child after the TRAIT_NAMES children
+        cash = link_to_informedness(cash, n_clues, config.cash_rho, link)
     activity = streams["activity"].lognormal(0.0, config.activity_sigma, n)
 
     return Traits(
@@ -113,6 +120,20 @@ def draw_traits(config: Config, rng: np.random.Generator) -> Traits:
         cash=cash,
         activity=activity,
     )
+
+
+def link_to_informedness(
+    values: np.ndarray, n_clues: np.ndarray, rho: float, rng: np.random.Generator
+) -> np.ndarray:
+    """Reassign `values` among agents so their ranks follow informedness with Gaussian
+    copula correlation `rho`. Ties in `n_clues` are broken at random."""
+    n = len(values)
+    tie_break = rng.random(n)
+    ranks = np.lexsort((tie_break, n_clues)).argsort()
+    normal = NormalDist()
+    scores = np.array([normal.inv_cdf((r + 0.5) / n) for r in ranks.tolist()])
+    latent = rho * scores + np.sqrt(1 - rho**2) * rng.standard_normal(n)
+    return np.sort(values)[latent.argsort().argsort()]
 
 
 def _logit_normal(rng: np.random.Generator, mu: np.ndarray, sigma: float) -> np.ndarray:

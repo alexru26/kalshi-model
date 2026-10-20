@@ -112,16 +112,33 @@ def test_invariant_check_catches_unbacked_contracts():
         model.check_invariants()
 
 
-def test_fully_informed_market_converges_to_p_star():
-    # Limit case: everyone holds every private clue and gets every news clue, with no
-    # noise, weighting, or minimum edge. The price must end within a cent or two of P*.
+def fully_informed(seed: int, market_trust: float) -> MarketModel:
+    """Everyone holds every private clue and gets every news clue, with no noise,
+    weighting, or minimum edge."""
     n = 40
     config = amm_config(n_agents=n, turns_per_step=10, n_news_seeds=n, lmsr_b=20.0)
+    traits = make_traits(n, n_clues=60, kelly_frac=0.5, cash=10**6, market_trust=market_trust)
+    return run(config, seed, traits=traits)
+
+
+def test_fully_informed_market_that_ignores_the_price_converges_to_p_star():
+    # Limit case: with market_trust 0 every belief is exactly P*, so the price must end
+    # within a cent or two of it.
     for seed in range(4):
-        traits = make_traits(n, n_clues=60, kelly_frac=0.5, cash=10**6)
-        model = run(config, seed, traits=traits)
+        model = fully_informed(seed, market_trust=0.0)
         df = model.datacollector.get_model_vars_dataframe()
         assert abs(df.price.iloc[-1] - df.p_star.iloc[-1]) < 0.02
+
+
+def test_fully_informed_market_that_reads_the_price_double_counts_it():
+    # Agents who already know everything still add the price as others' evidence, so
+    # they double count (PLAN.md Section 2.2). With market_trust 80 and 80 clues known,
+    # w_market = 0.5 and beliefs settle where logit(price) = L + 0.5 logit(price): at
+    # twice P*'s log-odds.
+    for seed in range(4):
+        model = fully_informed(seed, market_trust=80.0)
+        expected = 1 / (1 + math.exp(-2 * math.log(model.p_star / (1 - model.p_star))))
+        assert model.price == pytest.approx(expected, abs=0.02)
 
 
 def test_uninformed_market_stays_at_fifty_cents():
@@ -132,8 +149,8 @@ def test_uninformed_market_stays_at_fifty_cents():
 
 
 def test_default_price_moves_toward_p_star(default_runs):
-    # Beliefs are averages, so the price is roughly a weighted average of agents'
-    # posteriors: it moves toward P* but falls short of it (PLAN.md Section 2.2).
+    # The price moves toward P* (its logit slope on P* is positive and below 1 at the
+    # Step 3 informedness, since most agents know little).
     final_price = np.array([m.price for m in default_runs])
     final_p_star = np.array([m.p_star for m in default_runs])
     slope = np.polyfit(

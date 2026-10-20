@@ -1,3 +1,4 @@
+import itertools
 import math
 
 import pytest
@@ -47,22 +48,27 @@ def test_an_agent_with_no_clues_follows_the_market():
     assert belief(reference_price=0.7) == pytest.approx(logit(0.7))
 
 
-def test_clues_and_price_are_averaged_by_information():
-    # market_trust 3 and 3 own clues: equal weights, so the belief is the midpoint.
+def test_the_price_adds_to_the_clues_discounted_by_what_the_agent_knows():
+    # market_trust 3 and 3 own clues: the price gets weight 3 / (3 + 3) = 0.5.
     assert belief(l_own=3 * W, n_own=3, reference_price=0.4) == pytest.approx(
-        0.5 * 3 * W + 0.5 * logit(0.4)
+        3 * W + 0.5 * logit(0.4)
     )
     # Hearsay counts as w_hearsay clues each: n_eff = 1 + 0.5 x 4 = 3.
     value = belief(l_own=W, n_own=1, l_heard=4 * W, n_heard=4, reference_price=0.6)
-    assert value == pytest.approx(0.5 * (W + 2 * W) + 0.5 * logit(0.6))
+    assert value == pytest.approx(W + 0.5 * 4 * W + 0.5 * logit(0.6))
 
 
-def test_the_belief_never_goes_past_both_the_clues_and_the_price():
-    for price in (0.2, 0.5, 0.8):
-        for net in (-5, 0, 5):
-            value = belief(l_own=net * W, n_own=7, reference_price=price)
-            low, high = sorted((net * W, logit(price)))
-            assert low - 1e-12 <= value <= high + 1e-12
+def test_agreeing_clues_and_price_add_up_past_both():
+    # Unlike averaging, the belief can be more extreme than either piece of evidence,
+    # so the price can sum information no single agent holds.
+    value = belief(l_own=5 * W, n_own=7, reference_price=0.7)
+    assert value > max(5 * W, logit(0.7))
+
+
+def test_the_more_an_agent_knows_the_less_it_leans_on_the_price():
+    leans = [belief(l_own=0.0, n_own=n, reference_price=0.8) for n in (0, 1, 3, 10, 30)]
+    assert leans[0] == pytest.approx(logit(0.8))
+    assert all(a > b > 0 for a, b in itertools.pairwise(leans))
 
 
 def test_depth_and_noise_add_to_the_belief():

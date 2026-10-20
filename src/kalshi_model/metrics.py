@@ -5,7 +5,7 @@
 P&L in dollars. Metrics that a market does not have (fees and maker fills under the
 AMM, for example) are NaN.
 
-News response: for each real news clue whose 90-step window fits in the run, the
+News response: for each real news clue whose 300-step window fits in the run, the
 price move toward the clue (up for a YES clue, down for a NO clue) from the step
 before its release, at each lag in `RESPONSE_LAGS`. A run's response is the mean over
 its clues. The price stays short of `P*` (beliefs average the price with each agent's
@@ -24,10 +24,12 @@ from kalshi_model.lmsr import subsidy_cents
 from kalshi_model.model import MarketModel
 from kalshi_model.orderbook import BUY
 
-NEWS_WINDOW = 90
-"""Steps after a news release over which the price response is measured (news comes
-about every 95 steps, so the window ends before the next clue)."""
-RESPONSE_LAGS = (0, 1, 2, 3, 5, 7, 10, 15, 20, 25, 30, 40, 50, 60, 75, 90)
+NEWS_WINDOW = 300
+"""Steps after a news release over which the price response is measured. News comes
+about every 95 steps, so later clues fall inside the window, but their directions are
+independent of this clue's, so they add only noise to the mean move. Step 8 found the
+mean move still growing at 90 steps."""
+RESPONSE_LAGS = (0, 1, 2, 3, 5, 7, 10, 15, 20, 25, 30, 40, 50, 60, 75, 90, 120, 150, 200, 250, 300)
 NEAR_FIFTY = (40.0, 60.0)
 """Prices, in cents, at which the Kalshi fee per contract is near its 50c peak."""
 ERROR_BLOCKS = 10

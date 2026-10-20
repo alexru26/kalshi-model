@@ -13,17 +13,19 @@ The default Kalshi market should reproduce several real patterns at once:
    Step 5 criterion, kept while tuning so larger orders cannot empty the book).
 4. Informed agents earn more: the best-informed tenth out-earns agents with no clues,
    who lose on average (they pay spreads and fees for noise trading).
-
-Reported, not required: whether the price is more accurate than the average agent's
-own judgment (lower Brier score against the outcome, smaller gap to P*). Each agent is
-scored on its own-evidence posterior (no market term, no depth signal, no noise); one
-who knows no clue at all scores 0.5, which is rare by the end of a run because news and
-hearsay reach nearly every agent. Beliefs are averages, so the price is roughly a
-weighted average of agents' beliefs and comes out only slightly more accurate than the
-average agent's own judgment. With the frozen defaults, seeds 5000-5143 give a Brier
-score better by 0.0038 (se 0.0025) with the price better in 52% of seeds, and seeds
-6000-6143 give 0.0025 (se 0.0022) and 51% (`experiments/validate_defaults.py` prints
-these; decided with the user in Step 7).
+5. The price is calibrated: regressing logit(P*) on logit(price), over the second half
+   of every run, gives a slope between 0.8 and 1.25. Without disinformation P* is the
+   outcome's exact posterior, so it stands in for the outcome with far less noise; a
+   slope above 1 means the price is underconfident (too close to 50c), below 1
+   overconfident. Real prediction-market prices are roughly calibrated close to
+   resolution (Page & Clemen 2013). Only the overall slope is fitted, so the
+   favorite-longshot bias at the extremes stays an out-of-sample check.
+6. The price beats the agents: its Brier score against the outcome is lower than the
+   average agent's own judgment. Each agent is scored on its own-evidence posterior
+   (no market term, no depth signal, no noise); one who knows no clue at all scores
+   0.5, which is rare by the end of a run because news and hearsay reach nearly every
+   agent. Under the Step 3 averaging belief rule the price was barely better, so this
+   was reported rather than required until Step 8b (PLAN.md).
 
 `measure` reads these off finished runs; `targets` loads the real values fetched by
 `data/fetch_kalshi_patterns.py`; `evaluate` scores a run set against them. The second
@@ -44,12 +46,16 @@ from kalshi_model.model import MarketModel
 
 PATTERNS_FILE = Path(__file__).resolve().parents[2] / "data" / "kalshi_patterns.json"
 SIZE_QUANTILES = ("q25", "q50", "q75", "q90")
-REQUIRED = ("spread", "sizes", "book_filled", "informed_earn")
-"""Patterns a calibration must meet; `beats_agents` is reported only."""
+REQUIRED = ("spread", "sizes", "book_filled", "informed_earn", "calibrated", "beats_agents")
+"""Patterns a calibration must meet."""
 MAX_EMPTY_SHARE = 0.02
 """Most steps that may end with one side of the book empty."""
 SIZE_TOLERANCE = math.log(2)
 """Accepted mean absolute log ratio of fill-size quantiles: within a factor of 2."""
+CALIBRATION_BAND = (0.8, 1.25)
+"""Accepted slope of logit(P*) on logit(price)."""
+CALIBRATION_STRIDE = 50
+"""Steps between the (price, P*) pairs taken from the second half of each run."""
 
 
 def targets(path: Path = PATTERNS_FILE) -> dict:
@@ -66,8 +72,11 @@ def measure(models: list[MarketModel]) -> dict:
     spreads, sizes, empty = [], [], []
     price_brier, agent_brier, price_gap, agent_gap = [], [], [], []
     informed_pnl, uninformed_pnl = [], []
+    pairs = []
     for model in models:
         df = model.datacollector.get_model_vars_dataframe()
+        late = df.iloc[len(df) // 2 :: CALIBRATION_STRIDE]
+        pairs += list(zip(late.price, late.p_star, strict=True))
         spreads.append(float(df.spread.median()))
         empty.append(float(df.empty_book.mean()))
         sizes += [f.qty for f in model.book.fills]
@@ -93,7 +102,16 @@ def measure(models: list[MarketModel]) -> dict:
         "agent_gap": float(np.mean(agent_gap)),
         "informed_pnl": float(np.mean(informed_pnl)),
         "uninformed_pnl": float(np.mean(uninformed_pnl)),
+        "calibration_slope": calibration_slope(pairs),
     }
+
+
+def calibration_slope(pairs: list[tuple[float, float]]) -> float:
+    """Least-squares slope of logit(P*) on logit(price) over (price, P*) pairs."""
+    both = np.clip(np.array(pairs, dtype=float), 1e-4, 1 - 1e-4)
+    logits = np.log(both / (1 - both))
+    x, y = logits[:, 0], logits[:, 1]
+    return float(np.polyfit(x, y, 1)[0])
 
 
 def evaluate(patterns: dict, target: dict) -> dict:
@@ -116,6 +134,7 @@ def evaluate(patterns: dict, target: dict) -> dict:
         "beats_agents": patterns["price_brier"] < patterns["agent_brier"],
         "informed_earn": patterns["informed_pnl"] > patterns["uninformed_pnl"]
         and patterns["uninformed_pnl"] < 0,
+        "calibrated": CALIBRATION_BAND[0] <= patterns["calibration_slope"] <= CALIBRATION_BAND[1],
     }
     return {
         "met": met,
@@ -156,12 +175,14 @@ SPACE = (
     Dimension("noise_scale", 0.03, 0.3, log=True),
     Dimension("min_edge_scale", 0.3, 5.0, log=True),
     Dimension("patience_mu", -3.0, 2.0),
-    Dimension("market_trust_scale", 0.3, 10.0, log=True),
+    Dimension("market_trust_scale", 1.0, 60.0, log=True),
+    Dimension("cash_rho", 0.0, 0.95),
     Dimension("activity_sigma", 0.3, 1.5),
     Dimension("mm_size", 3, 100, log=True, integer=True),
     Dimension("mm_half_spread", 0.5, 4.0),
 )
-"""The calibrated settings and their prior ranges. Kelly fractions are Beta(10m, 10(1-m))
+"""The calibrated settings and their prior ranges (`market_trust_scale` widened and
+`cash_rho` added in Step 8b). Kelly fractions are Beta(10m, 10(1-m))
 for a searched mean m. Not searched: g (lab estimates), informedness (Step 3), and
 w_hearsay and w_depth (no data anchor)."""
 KELLY_CONCENTRATION = 10.0

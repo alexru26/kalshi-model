@@ -45,20 +45,19 @@ def belief_log_odds(
     noise: float,
     z: float,
 ) -> float:
-    """logit(b) = (1 - w_m)(L_own + w_h L_heard) + w_m logit(mid) + w_depth imb + noise z.
+    """logit(b) = L_own + w_h L_heard + w_m logit(mid) + w_depth imb + noise z.
 
-    `w_m = market_trust / (market_trust + n_eff + eps)` with
-    `n_eff = n_own + w_h n_heard`, and `w_m = 0` when there is no reference price.
+    The price counts as evidence from other traders' clues, added to the agent's own.
+    `w_m = market_trust / (market_trust + n_eff + eps)` with `n_eff = n_own + w_h n_heard`
+    discounts it by the share of the market's information the agent thinks it holds,
+    and `w_m = 0` when there is no reference price (PLAN.md Section 2.2).
     """
-    if reference_price is None:
-        w_market = 0.0
-        market_term = 0.0
-    else:
+    market_term = 0.0
+    if reference_price is not None:
         n_eff = n_own + w_hearsay * n_heard
         w_market = market_trust / (market_trust + n_eff + EPS)
         market_term = w_market * logit(reference_price)
-    clue_term = (1 - w_market) * (l_own + w_hearsay * l_heard)
-    return clue_term + market_term + w_depth * imbalance + noise * z
+    return l_own + w_hearsay * l_heard + market_term + w_depth * imbalance + noise * z
 
 
 def perceived_yes(belief_log_odds_value: float, g: float) -> float:

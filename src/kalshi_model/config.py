@@ -126,6 +126,9 @@ class Config:
     cash_median: int = 104_000
     """Median starting cash, in cents."""
     cash_sigma: float = 1.95
+    cash_rho: float = 0.0
+    """Rank correlation (Gaussian copula) of starting cash with informedness: market
+    selection leaves more of the money with the well-informed (PLAN.md Section 2.2)."""
     activity_sigma: float = 0.93
 
     @property
@@ -192,6 +195,8 @@ class Config:
             raise ValueError("mm_alpha must be at most 1 and mm_decay below 1")
         if self.mm_half_spread > self.mm_max_half_spread:
             raise ValueError("mm_half_spread cannot exceed mm_max_half_spread")
+        if not -1 < self.cash_rho < 1:
+            raise ValueError("cash_rho must be strictly between -1 and 1")
         if not 0 < self.g_low <= self.g_high <= 1:
             raise ValueError("g must satisfy 0 < g_low <= g_high <= 1")
 
