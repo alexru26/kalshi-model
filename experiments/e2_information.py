@@ -124,6 +124,15 @@ def predictions(results: dict) -> None:
     every = [r for n in NETWORKS for r in results[sweep[n]].values()]
     pnl = [r["pnl_top_degree"] - r["pnl_bottom_degree"] for r in every]
     print(f"  {'all five':16s}{'':>26s}{fmt(*mean_ci(pnl), 1):>24s}")
+    # Without fakes, P&L can be valued at P*: the same expectation without outcome luck.
+    print("  ratio 0, P&L top - bottom valued at P* ($)")
+    for network in NETWORKS:
+        rows = results[label(network, 0.0)].values()
+        pnl = [r["pnl_top_degree_at_p_star"] - r["pnl_bottom_degree_at_p_star"] for r in rows]
+        print(f"  {network:16s}{fmt(*mean_ci(pnl), 1):>50s}")
+    every = [r for n in NETWORKS for r in results[label(n, 0.0)].values()]
+    pnl = [r["pnl_top_degree_at_p_star"] - r["pnl_bottom_degree_at_p_star"] for r in every]
+    print(f"  {'all five':16s}{fmt(*mean_ci(pnl), 1):>50s}")
 
     print("\nE2.4 SBM - other network, distortion (c), whole run and last quarter")
     for metric in ("signed_gap", "signed_gap_last_quarter"):

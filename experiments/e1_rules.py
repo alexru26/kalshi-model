@@ -55,6 +55,8 @@ def per_config_table(results: dict) -> None:
         ("agent_liquidity_share", "contracts with agent maker"),
         ("pnl_none", "P&L, no clues ($/agent)"),
         ("pnl_top", "P&L, top tenth ($/agent)"),
+        ("pnl_none_at_p_star", "same at P*, no clues"),
+        ("pnl_top_at_p_star", "same at P*, top tenth"),
     ]
     print(f"{'metric':32s}" + "".join(f"{label:>22s}" for label in CONFIGS))
     for metric, name in metrics:
@@ -119,6 +121,11 @@ def predictions(results: dict) -> None:
     print(f"  taker return:          {fmt(*mean_ci([r['taker_return'] for r in k]))}")
     gaps = [r["maker_return"] - r["taker_return"] for r in k]
     print(f"  maker - taker (paired): {fmt(*mean_ci(gaps))}")
+    # Valued at P* (no fakes in E1): the same expectation without the outcome's luck.
+    print(f"  maker return at P*:     {fmt(*mean_ci([r['maker_return_at_p_star'] for r in k]))}")
+    print(f"  taker return at P*:     {fmt(*mean_ci([r['taker_return_at_p_star'] for r in k]))}")
+    gaps = [r["maker_return_at_p_star"] - r["taker_return_at_p_star"] for r in k]
+    print(f"  maker - taker at P*:    {fmt(*mean_ci(gaps))}")
 
     print("\nE1.5 fee per contract traded on Kalshi (cents)")
     print(f"  no clues:     {fmt(*mean_ci([r['fee_per_contract_none'] for r in k]))}")

@@ -116,7 +116,7 @@ def rank_correlation(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def test_cash_rises_with_informedness_by_cash_rho():
-    config = Config(n_agents=20_000, turns_per_step=1)
+    config = Config(n_agents=20_000, turns_per_step=1, cash_rho=0.0)
     unlinked = draw(config, seed=1)
     linked = draw(replace(config, cash_rho=0.8), seed=1)
     # A Gaussian copula with correlation 0.8 has rank correlation (6 / pi) asin(0.4), about
@@ -128,7 +128,7 @@ def test_cash_rises_with_informedness_by_cash_rho():
 
 
 def test_cash_link_only_reassigns_cash_and_leaves_other_traits_unchanged():
-    config = Config()
+    config = Config(cash_rho=0.0)
     unlinked = draw(config, seed=3)
     linked = draw(replace(config, cash_rho=0.5), seed=3)
     assert np.array_equal(np.sort(linked.cash), np.sort(unlinked.cash))
@@ -145,7 +145,7 @@ def test_cash_rho_must_lie_strictly_inside_minus_one_to_one(rho):
 
 
 def test_noise_falls_with_informedness_by_noise_delta():
-    config = Config(n_agents=20_000, turns_per_step=1)
+    config = Config(n_agents=20_000, turns_per_step=1, noise_delta=0.0)
     flat = draw(config, seed=2)
     linked = draw(replace(config, noise_delta=0.06), seed=2)
     assert np.allclose(linked.noise, flat.noise * np.exp(-0.06 * flat.n_clues))

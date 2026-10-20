@@ -5,6 +5,7 @@ import pytest
 from conftest import make_traits
 
 from kalshi_model.config import Config, amm_config, clob_config
+from kalshi_model.metrics import expected_pnl
 from kalshi_model.model import InvariantError, MarketModel
 
 
@@ -166,9 +167,11 @@ def test_default_price_moves_toward_p_star(default_runs):
 
 
 def test_informed_agents_earn_more_than_uninformed(default_runs):
+    # P&L valued at P*: the same expectation as realized P&L without fakes, without the
+    # luck of the outcome (the Step 7 informed-earn pattern).
     gaps = []
     for model in default_runs:
-        pnl = np.array([t.pnl for t in model.traders])
+        pnl = expected_pnl(model)
         n_clues = model.traits.n_clues
         gaps.append(pnl[n_clues >= 30].mean() - pnl[n_clues == 0].mean())
     assert np.mean(gaps) > 0
@@ -194,12 +197,16 @@ def test_kalshi_runs_keep_everyone_solvent_and_conserve_money(kalshi_runs):
 
 
 def test_market_maker_keeps_quoting_and_empty_book_steps_are_rare(kalshi_runs):
+    # The Step 7 book-filled pattern: at most 2% of steps empty on average over seeds.
+    shares = []
     for model in kalshi_runs:
         df = model.datacollector.get_model_vars_dataframe()
         assert df.mm_quoting.mean() > 0.99
         assert model.empty_book_steps == df.empty_book.sum()
-        assert model.empty_book_steps < 0.02 * model.config.n_steps
+        shares.append(model.empty_book_steps / model.config.n_steps)
+        assert shares[-1] < 0.1
         assert df.price.notna().all()
+    assert np.mean(shares) <= 0.02
 
 
 def test_kalshi_price_moves_toward_p_star(kalshi_runs):

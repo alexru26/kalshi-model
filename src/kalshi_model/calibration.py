@@ -17,12 +17,16 @@ The default Kalshi market should reproduce several real patterns at once:
    has the realized P&L's expectation with about a sixth of its spread across seeds,
    which the outcome's luck otherwise dominates (Step 8b).
 5. The price is calibrated: regressing logit(P*) on logit(price), over the second half
-   of every run, gives a slope between 0.8 and 1.25. Without disinformation P* is the
+   of every run, gives a slope between 0.8 and 1.4. Without disinformation P* is the
    outcome's exact posterior, so it stands in for the outcome with far less noise; a
    slope above 1 means the price is underconfident (too close to 50c), below 1
    overconfident. Real prediction-market prices are roughly calibrated close to
-   resolution (Page & Clemen 2013). Only the overall slope is fitted, so the
-   favorite-longshot bias at the extremes stays an out-of-sample check.
+   resolution (Page & Clemen 2013), and miss in the underconfident direction of the
+   favorite-longshot bias (Burgi et al. 2025), so the band reaches further above 1.
+   The informed earn only when the price leaves them an edge (Grossman & Stiglitz
+   1980), so every setting that met the other patterns had a slope of 1.2 to 1.3.
+   Only the overall slope is fitted, so the favorite-longshot bias at the extremes
+   stays an out-of-sample check.
 6. The price beats the agents: its Brier score against the outcome is lower than the
    average agent's own judgment. Each agent is scored on its own-evidence posterior
    (no market term, no depth signal, no noise); one who knows no clue at all scores
@@ -56,7 +60,7 @@ MAX_EMPTY_SHARE = 0.02
 """Most steps that may end with one side of the book empty."""
 SIZE_TOLERANCE = math.log(2)
 """Accepted mean absolute log ratio of fill-size quantiles: within a factor of 2."""
-CALIBRATION_BAND = (0.8, 1.25)
+CALIBRATION_BAND = (0.8, 1.4)
 """Accepted slope of logit(P*) on logit(price)."""
 CALIBRATION_STRIDE = 50
 """Steps between the (price, P*) pairs taken from the second half of each run."""

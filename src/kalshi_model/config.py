@@ -1,8 +1,9 @@
 """The single configuration object for a model run.
 
 Every parameter lives here (PLAN.md Section 4). The trait distributions and the market
-maker were calibrated in Step 7 against real Kalshi patterns (`experiments/calibrate.py`,
-`results/calibration.csv`) and are frozen for all experiments. `g` (set from lab
+maker were calibrated in Step 7, and again in Step 8b, against real Kalshi patterns
+(`experiments/calibrate.py`, `results/calibration.csv`) and are frozen for all
+experiments. `g` (set from lab
 estimates), informedness (set in Step 3), `w_hearsay` and `w_depth` (no data anchor), and
 the network, AMM, and order-upkeep settings are assumptions or starting guesses.
 """
@@ -51,12 +52,12 @@ class Config:
     """Steps a resting order may sit stale before its owner cancels it to reprice."""
 
     # Market-maker component in the CLOB (PLAN.md Section 2.1). mm_size and
-    # mm_half_spread were calibrated in Step 7; the rest are starting guesses.
+    # mm_half_spread were calibrated (Steps 7 and 8b); the rest are starting guesses.
     mm_cash: int = 1_000_000
     """Market maker's starting cash, in cents."""
-    mm_size: int = 36
+    mm_size: int = 64
     """Contracts quoted on each side."""
-    mm_half_spread: float = 2.37
+    mm_half_spread: float = 0.763
     """Base half-spread, in cents."""
     mm_max_half_spread: float = 10.0
     mm_alpha: float = 0.1
@@ -96,44 +97,44 @@ class Config:
     disinfo_ratio: float = 0.0
     """Fake clues per true news clue (0, 0.05, 0.1, 0.2 give 0, 1, 2, 4 fakes)."""
 
-    # Trait distributions (PLAN.md Section 2.2). Calibrated in Step 7 except informedness,
+    # Trait distributions (PLAN.md Section 2.2). Calibrated (Steps 7 and 8b) except informedness,
     # w_hearsay (hearsay_*), w_depth (depth_*), and g.
     # Informedness is heavy-tailed: with mean 20 and dispersion 0.2, about 40% of agents
-    # hold no private clue and the top 10% hold most of the pool. Beliefs are averages, so
-    # the price is roughly a weighted average of agents' posteriors; how much of the pool
-    # the informed hold sets how far it can move toward P*.
+    # hold no private clue and the top 10% hold most of the pool. The price is roughly a
+    # wealth-weighted average of beliefs, so how much of the cash the informed hold
+    # (cash_rho) sets how far it moves toward P*.
     n_clues_mean: float = 20.0
     n_clues_dispersion: float = 0.2
     hearsay_mu: float = 0.0
     hearsay_gamma: float = 0.05
     hearsay_sigma: float = 1.0
     market_trust_shape: float = 2.0
-    market_trust_scale: float = 3.78
+    market_trust_scale: float = 36.3
     depth_alpha: float = 1.0
     depth_beta: float = 9.0
-    noise_scale: float = 0.054
+    noise_scale: float = 0.164
     """Half-normal scale of belief noise for an agent with no private clues."""
-    noise_delta: float = 0.0
+    noise_delta: float = 0.0984
     """Belief noise falls by a factor exp(-noise_delta) per private clue: retail traders'
     beliefs are noisier (noise traders, Black 1986; PLAN.md Section 2.2)."""
-    min_edge_scale: float = 1.44
+    min_edge_scale: float = 1.92
     """Half-normal scale of `min_edge`, in cents."""
-    patience_mu: float = -0.2
+    patience_mu: float = -2.39
     patience_delta: float = 0.05
     patience_sigma: float = 1.0
-    kelly_alpha: float = 3.93
-    kelly_beta: float = 6.07
+    kelly_alpha: float = 1.31
+    kelly_beta: float = 8.69
     g_low: float = 0.6
     g_high: float = 1.0
     g_alpha: float = 2.0
     g_beta: float = 2.0
-    cash_median: int = 104_000
+    cash_median: int = 147_000
     """Median starting cash, in cents."""
-    cash_sigma: float = 1.95
-    cash_rho: float = 0.0
+    cash_sigma: float = 2.18
+    cash_rho: float = 0.591
     """Rank correlation (Gaussian copula) of starting cash with informedness: market
     selection leaves more of the money with the well-informed (PLAN.md Section 2.2)."""
-    activity_sigma: float = 0.93
+    activity_sigma: float = 0.739
 
     @property
     def n_fakes(self) -> int:
