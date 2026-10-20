@@ -122,6 +122,7 @@ def test_at_beta_one_a_clue_reaches_everyone_within_the_network_diameter(network
     agents.add_edges_from((a, b) for a, around in enumerate(model.neighbors) for b in around)
     distance = nx.single_source_shortest_path_length(agents, seed)
     assert set(first) == set(distance)  # exactly the seed's component
+    assert model.learned_step[60] == first
     for agent, d in distance.items():
         assert first[agent] - release == d
     component = agents.subgraph(distance)
