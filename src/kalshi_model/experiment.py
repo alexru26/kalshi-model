@@ -41,14 +41,17 @@ def run_one(job: tuple[str, Config, int]) -> dict:
 
 
 def git_commit() -> str:
-    """The commit the code ran at, ending in "-dirty" if it had uncommitted changes."""
-    return subprocess.run(
-        ["git", "describe", "--always", "--dirty", "--abbrev=40"],
-        capture_output=True,
-        text=True,
-        check=False,
-        cwd=RESULTS_DIR.parent,
-    ).stdout.strip()
+    """The commit the code ran at, ending in "-dirty" if files outside results/ had
+    uncommitted changes (rewritten results do not make the code dirty)."""
+
+    def git(*args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["git", *args], capture_output=True, text=True, check=False, cwd=RESULTS_DIR.parent
+        )
+
+    commit = git("rev-parse", "HEAD").stdout.strip()
+    dirty = git("diff", "--quiet", "HEAD", "--", ".", f":(exclude){RESULTS_DIR.name}").returncode
+    return f"{commit}-dirty" if dirty else commit
 
 
 def run_experiment(
@@ -59,6 +62,7 @@ def run_experiment(
     workers: int | None = None,
 ) -> list[dict]:
     """Run every configuration on every seed; write results/<name>.csv and .json."""
+    commit = git_commit()
     jobs = [(label, config, seed) for label, config in configs.items() for seed in seeds]
     with ProcessPoolExecutor(workers) as pool:
         rows = list(pool.map(run_one, jobs, chunksize=2))
@@ -68,7 +72,7 @@ def run_experiment(
         writer.writeheader()
         writer.writerows(rows)
     meta = {
-        "commit": git_commit(),
+        "commit": commit,
         "seeds": [seeds.start, seeds.stop],
         "configs": {label: asdict(config) for label, config in configs.items()},
     }
