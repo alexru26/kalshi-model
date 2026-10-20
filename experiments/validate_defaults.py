@@ -28,8 +28,8 @@ def main(first: int, n_seeds: int) -> None:
     print(f"seeds {first}..{first + n_seeds - 1}")
     print(json.dumps(patterns, indent=2))
     print(json.dumps({k: v for k, v in result.items()}, indent=2))
-    # Reported, not required: how much more accurate the price is than the average
-    # agent's own judgment, paired seed by seed.
+    # The beats-agents pattern above pools all seeds; this pairs them seed by seed to
+    # show how much more accurate the price is than the average agent's own judgment.
     per_seed = [measure([m]) for m in models]
     gain = np.array([p["agent_brier"] - p["price_brier"] for p in per_seed])
     print(
