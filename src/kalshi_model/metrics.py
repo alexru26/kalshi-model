@@ -8,8 +8,8 @@ AMM, for example) are NaN.
 News response: for each real news clue whose 300-step window fits in the run, the
 price move toward the clue (up for a YES clue, down for a NO clue) from the step
 before its release, at each lag in `RESPONSE_LAGS`. A run's response is the mean over
-its clues. The price stays short of `P*` (beliefs average the price with each agent's
-own evidence), so the gap to the new `P*` rarely halves; the half-life is instead the
+its clues. The price can still stay short of `P*` (underconfident, calibration slope
+about 1.3), so the gap to the new `P*` rarely halves; the half-life is instead the
 lag at which the mean move reaches half its size at the window's end (`half_life`,
 computed on the mean curve over seeds).
 """
