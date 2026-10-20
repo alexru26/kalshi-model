@@ -34,7 +34,7 @@ Managed with `uv` (Python 3.12). CI (`.github/workflows/ci.yml`) runs the same c
 
 ## Open questions
 
-- Step 8b (`PLAN.md`) replaces the averaging belief rule and links cash to informedness, then redoes the Step 7 calibration and the Step 8 runs; until then the frozen `Config` defaults and `RESULTS.md` describe the old model. `g`, `w_hearsay`, `w_depth`, informedness, and the network and AMM settings remain assumptions or starting guesses.
+- `g`, `w_hearsay`, `w_depth`, informedness, and the network and AMM settings remain assumptions or starting guesses (calibration covers the rest, `PLAN.md` Steps 7 and 8b).
 - Sources marked † in `SOURCES.md` still need their details verified.
 
 ## Things to remember
