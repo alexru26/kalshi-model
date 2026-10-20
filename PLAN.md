@@ -23,7 +23,7 @@ Every configuration runs on the same 100 seeds, so comparisons are paired run by
 - CLOB to Kalshi: what Kalshi's fee rules change.
 - *Predictions:* the fee creates a no-trade band widest at 50c, so prices near 50c react more slowly to small news; fees cut volume much more than accuracy; Kalshi's free maker orders push patient agents to post resting orders, and makers out-earn takers (as Burgi et al. find on real Kalshi data).
 
-**E2. Information spread (8 configurations).** One variable at a time around the default (distortion is paired against the same network without disinformation, so each network also runs at ratio 0):
+**E2. Information spread (12 configurations).** One variable at a time around the default (distortion is paired against the same network without disinformation, so each network also runs at ratio 0):
 - *Network sweep:* 5 networks at disinformation ratio 0.1 (Section 2.4).
 - *Disinformation sweep:* ratios 0, 0.05, 0.1, 0.2 on Holme-Kim, i.e. exactly 0, 1, 2, 4 fakes added to the 20 real news clues. A real clue pushes toward the truth by `2q - 1 = 0.06` on average and a fake pushes 1 against it, so at ratio 0.06 the news stream carries no net signal: 0.05 sits just below that break-even point, and 0.1 and 0.2 go past it as stress tests.
 - *Predictions:* well-connected agents trade earlier and earn more (Ozsoylev et al. 2014); echo chambers sustain the largest disinformation distortion; distortion grows faster than the ratio, because agents who follow the price amplify a rumor once it moves the price.
