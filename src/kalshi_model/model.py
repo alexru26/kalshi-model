@@ -161,6 +161,8 @@ class MarketModel(mesa.Model):
         self._initial_total_cash = self._total_cash()
         self.settled = False
         self._closing_price: float | None = None
+        self.closing_positions: list[int] | None = None
+        """Each trader's YES position when the market closed, just before settlement."""
         self.volume = 0
         """Contracts traded in the current step."""
         self.empty_book_steps = 0
@@ -293,6 +295,7 @@ class MarketModel(mesa.Model):
 
     def _settle(self) -> None:
         self._closing_price = self.price
+        self.closing_positions = [t.position for t in self.traders]
         y = self.world.y
         if self.lmsr is not None:
             for trader in self.traders:

@@ -12,7 +12,10 @@ The default Kalshi market should reproduce several real patterns at once:
 3. The book is rarely empty: at most 2% of steps end with no bid or no offer (the
    Step 5 criterion, kept while tuning so larger orders cannot empty the book).
 4. Informed agents earn more: the best-informed tenth out-earns agents with no clues,
-   who lose on average (they pay spreads and fees for noise trading).
+   who lose on average (they pay spreads and fees for noise trading). P&L is valued at
+   final P* (`metrics.expected_pnl`): calibration runs have no disinformation, so this
+   has the realized P&L's expectation with about a sixth of its spread across seeds,
+   which the outcome's luck otherwise dominates (Step 8b).
 5. The price is calibrated: regressing logit(P*) on logit(price), over the second half
    of every run, gives a slope between 0.8 and 1.25. Without disinformation P* is the
    outcome's exact posterior, so it stands in for the outcome with far less noise; a
@@ -42,6 +45,7 @@ from pathlib import Path
 import numpy as np
 
 from kalshi_model.agents import sigmoid
+from kalshi_model.metrics import expected_pnl
 from kalshi_model.model import MarketModel
 
 PATTERNS_FILE = Path(__file__).resolve().parents[2] / "data" / "kalshi_patterns.json"
@@ -89,7 +93,7 @@ def measure(models: list[MarketModel]) -> dict:
             agent_brier.append((belief - y) ** 2)
             agent_gap.append(abs(belief - p_star))
         n_clues = model.traits.n_clues
-        pnl = np.array([t.pnl for t in model.traders]) / 100
+        pnl = expected_pnl(model)
         informed_pnl.append(pnl[n_clues >= np.quantile(n_clues, 0.9)].mean())
         uninformed_pnl.append(pnl[n_clues == 0].mean())
     return {

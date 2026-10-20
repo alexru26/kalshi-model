@@ -8,6 +8,7 @@ from kalshi_model.metrics import (
     NEWS_WINDOW,
     RESPONSE_LAGS,
     degree_quarters,
+    expected_pnl,
     fill_values,
     half_life,
     news_events,
@@ -87,6 +88,15 @@ def test_maker_and_taker_values_add_up_to_each_agents_pnl(kalshi_run):
         assert v["maker_value"][i] + v["taker_value"][i] == trader.pnl
     # The market maker only posts, and Kalshi makers pay no fee: agents pay every fee.
     assert v["fees"].sum() == model.book.fees_collected > 0
+
+
+def test_pnl_at_p_star_from_closing_positions_matches_fills_valued_at_p_star(kalshi_run):
+    # Two routes to the same number: each agent's closing position valued at P*, and
+    # each of its fills valued at P*.
+    model = kalshi_run
+    by_fill = fill_values(model, payout=100 * model.p_star)
+    assert np.allclose(expected_pnl(model), (by_fill["maker_value"] + by_fill["taker_value"]) / 100)
+    assert not np.allclose(expected_pnl(model), [t.pnl / 100 for t in model.traders])
 
 
 # The row of one run
