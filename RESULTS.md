@@ -33,11 +33,11 @@ Context for every result: the price stays close to 50c (final prices average 5c 
 
 | Network (ratio 0.1) | Steps to half reach | News half-life (steps) | Distortion (c) | Last quarter (c) | P&L, top - bottom degree quarter ($) |
 |---|---|---|---|---|---|
-| Erdos-Renyi | 23.2 +- 0.4 | 39.4 [36.5, 46.4] | 0.80 +- 0.07 | 1.77 +- 0.16 | +22.8 +- 46.7 |
-| Watts-Strogatz | 41.8 +- 0.5 | 49.4 [45.7, 53.6] | 0.83 +- 0.06 | 1.79 +- 0.16 | +2.0 +- 33.7 |
-| Barabasi-Albert | 20.9 +- 0.5 | 41.7 [38.6, 44.9] | 0.80 +- 0.07 | 1.71 +- 0.15 | +20.9 +- 43.5 |
-| Holme-Kim | 21.5 +- 0.5 | 41.3 [37.9, 44.4] | 0.81 +- 0.07 | 1.69 +- 0.17 | +12.4 +- 42.4 |
-| Stochastic block model | 25.3 +- 0.4 | 44.4 [39.9, 48.6] | 0.80 +- 0.08 | 1.75 +- 0.17 | +32.6 +- 48.0 |
+| Erdos-Renyi | 23.2 +- 0.4 | 39.4 [36.5, 46.4] | 0.80 +- 0.07 | 1.77 +- 0.16 | +15.8 +- 52.2 |
+| Watts-Strogatz | 41.8 +- 0.5 | 49.4 [45.7, 53.6] | 0.83 +- 0.06 | 1.79 +- 0.16 | -0.7 +- 41.6 |
+| Barabasi-Albert | 20.9 +- 0.5 | 41.7 [38.6, 44.9] | 0.80 +- 0.07 | 1.71 +- 0.15 | +5.7 +- 45.0 |
+| Holme-Kim | 21.5 +- 0.5 | 41.3 [37.9, 44.4] | 0.81 +- 0.07 | 1.69 +- 0.17 | -5.0 +- 45.2 |
+| Stochastic block model | 25.3 +- 0.4 | 44.4 [39.9, 48.6] | 0.80 +- 0.08 | 1.75 +- 0.17 | +26.5 +- 57.2 |
 
 | Holme-Kim ratio | Fakes | Distortion (c) | Per fake (c) |
 |---|---|---|---|
@@ -49,7 +49,7 @@ Context for every result: the price stays close to 50c (final prices average 5c 
 |---|---|---|
 | E2.1 Watts-Strogatz spreads news slowest | **Held** | 41.8 steps to half reach vs 20.9-25.3 elsewhere; paired gaps of 16.5 to 20.9 steps, each +- 0.7 or less. |
 | E2.2 Slower spread means slower pricing | **Held** | Watts-Strogatz has the longest news half-life, 5.0 [0.6, 9.8] to 10.0 [3.0, 14.5] steps longer than each other network. The stochastic block model is second slowest on both. Among the three fastest spreaders the half-lives do not differ significantly. |
-| E2.3 Well-connected agents hear news earlier and earn more | **Partly held** | The top degree quarter learns each news clue 12-14 steps before the bottom quarter (3 steps in Watts-Strogatz, whose degrees barely vary), but earns only $18 +- 19 more across all five networks, with no network significant. News is a small part of what agents know, and one clue moves the price by under 1c, so hearing it early is worth little next to the P&L spread between runs. |
+| E2.3 Well-connected agents hear news earlier and earn more | **Partly held** | The top degree quarter learns each news clue 13.6-14.4 steps before the bottom quarter (5.8 steps in Watts-Strogatz, whose degrees vary least), but earns only $8.5 +- 21.7 more across all five networks, with no network significant. News is a small part of what agents know, and one clue moves the price by under 1c, so hearing it early is worth little next to the P&L spread between runs. |
 | E2.4 Echo chambers sustain the largest distortion | **Failed** | Distortion is 0.80-0.83c in all five networks; the stochastic block model differs from each other network by at most 0.03 +- 0.09c (0.06 +- 0.21c in the last quarter). By the end of a run 95-99% of agents know each fake in every network (checked on 6 seeds per network), even with only 5% of links between the two groups, so how fast a rumor travels does not change its total effect. |
 | E2.5 Distortion grows faster than the ratio | **Failed** | Distortion is proportional to the number of fakes: 0.43, 0.40, and 0.41c per fake (changes -0.03 +- 0.05 and +0.01 +- 0.03c). The price is a weighted average of beliefs, and each heard fake shifts a belief by a fixed amount, so fakes add up rather than feed on each other. |
 

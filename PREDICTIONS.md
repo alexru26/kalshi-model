@@ -27,6 +27,7 @@ Network sweep: 5 networks at disinformation ratio 0.1. Disinformation sweep: rat
 
 ## Amendments
 
-Changes made after the predictions were committed, each before the full runs. The scripts were smoke-tested on 3 seeds (20000-20002, part of the experiment set) before the full runs.
+Changes made after the predictions were committed, each before the full runs unless noted. The scripts were smoke-tested on 3 seeds (20000-20002, part of the experiment set) before the full runs.
 
 - **E1.3 metric** (after a 3-seed smoke test of the scripts). The first version compared agents' own maker share: of the contracts agents traded, the share they filled as makers. That share is about 0.5 in both books by construction, since most trades are between two agents, one the maker and one the taker. It now compares the share of all contracts whose maker is an agent rather than the market maker, which measures how much liquidity agents supply.
+- **Degree quarters** (after the full runs). The top and bottom quarters by degree (E2.3) were chosen by quantile, so tied degrees made the groups larger than a quarter and, in Watts-Strogatz, overlap. They are now exactly a quarter each, ranked by degree with ties broken by agent index, and both experiments were rerun.
