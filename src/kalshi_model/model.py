@@ -151,8 +151,8 @@ class MarketModel(mesa.Model):
         self.fake_ids = list(range(config.n_clues_total, config.n_clues_total + config.n_fakes))
         self.release_step: dict[int, int] = {}
         """News or fake clue id -> step it was released."""
-        self.knowers: dict[int, int] = {}
-        """News or fake clue id -> agents who know it."""
+        self.learned_step: dict[int, dict[int, int]] = {}
+        """News or fake clue id -> {agent index: step on which the agent learned it}."""
         self.half_reach_step: dict[int, int] = {}
         """News or fake clue id -> first step at which half the agents knew it."""
 
@@ -185,6 +185,11 @@ class MarketModel(mesa.Model):
             return self.lmsr.price
         reference = self.book.reference_price(self.config.spread_cap)
         return math.nan if reference is None else reference
+
+    @property
+    def knowers(self) -> dict[int, int]:
+        """News or fake clue id -> agents who know it."""
+        return {clue_id: len(learned) for clue_id, learned in self.learned_step.items()}
 
     @property
     def p_star(self) -> float:
@@ -245,12 +250,12 @@ class MarketModel(mesa.Model):
         ]:
             seeds = rng.choice(self.config.n_agents, size=self.config.n_news_seeds, replace=False)
             self.release_step[clue_id] = t
-            self.knowers[clue_id] = 0
+            self.learned_step[clue_id] = {}
             for index in seeds.tolist():
                 if self.traders[index].learn_own(
                     clue_id, self.points_yes(clue_id), spreadable=True
                 ):
-                    self._count_knower(clue_id, t)
+                    self._count_knower(clue_id, index, t)
             if self.config.n_news_seeds and clue_id not in self.fake_ids:
                 self._known_real.add(clue_id)
 
@@ -269,7 +274,7 @@ class MarketModel(mesa.Model):
                     if not was_told:
                         continue
                     if self.traders[neighbor].learn_heard(clue_id, points_yes):
-                        self._count_knower(clue_id, t)
+                        self._count_knower(clue_id, neighbor, t)
                     else:
                         told_a_knower = True
                 if told_a_knower:
@@ -280,9 +285,10 @@ class MarketModel(mesa.Model):
             self._clue_rngs[clue_id] = np.random.default_rng([self._spread_seed, clue_id])
         return self._clue_rngs[clue_id]
 
-    def _count_knower(self, clue_id: int, t: int) -> None:
-        self.knowers[clue_id] = self.knowers.get(clue_id, 0) + 1
-        if clue_id not in self.half_reach_step and 2 * self.knowers[clue_id] >= len(self.traders):
+    def _count_knower(self, clue_id: int, index: int, t: int) -> None:
+        learned = self.learned_step.setdefault(clue_id, {})
+        learned[index] = t
+        if clue_id not in self.half_reach_step and 2 * len(learned) >= len(self.traders):
             self.half_reach_step[clue_id] = t
 
     def _settle(self) -> None:
