@@ -8,6 +8,9 @@ skills-lock.json
 # Lavish review pages
 .lavish/
 
+# Charts drawn by experiments/plot_run.py (regenerate from a seed)
+figures/
+
 # Local Claude Code settings
 .claude/settings.local.json
 
