@@ -4,10 +4,14 @@ Panels share the step axis, and each has one y-scale:
 
 1. Price and P* in cents, the bid-ask band (order book only), a 50c guide, and a marker
    at each news or fake clue's release (up for a YES clue, down for a NO clue). The
-   outcome, final price, and final P* are labeled at the right edge.
+   outcome, final price, and final P* are labeled at the right edge. The price is the
+   scored price (`MarketModel.price`): the bid-ask midpoint when the spread is within
+   `spread_cap`, else the last trade; the LMSR price under the AMM.
 2. Contracts traded per bin of steps.
-3. Order book only: the bid-ask spread in cents, with steps where one side of the book
-   is empty marked along the bottom.
+3. Order book only: the bid-ask spread (best ask minus best bid) in cents, with steps
+   where one side of the book is empty marked along the bottom.
+
+Every panel carries a faint vertical guide at each clue's release.
 
 Row r of the model's data is step r + 1, the same convention as `metrics.news_events`.
 """
@@ -27,6 +31,8 @@ VOLUME_BIN = 20
 # Reference palette (dataviz skill): categorical slots 1, 2, and 7, and text tokens.
 PRICE = "#2a78d6"
 P_STAR = "#eb6834"
+BAND = "#86b6ef"  # sequential blue step 250, lighter than the price line it surrounds
+BAND_EDGE = "#256abf"  # sequential blue step 500
 FAKE = "#6250d6"
 NEWS = "#52514e"
 INK = "#0b0b0b"
@@ -70,6 +76,10 @@ def price_chart(model: MarketModel, title: str | None = None) -> Figure:
     )
     for ax in axes:
         _style(ax)
+        for e in clue_events(model):  # faint guides, shared by every panel
+            ax.axvline(
+                e.step, color=FAKE if e.fake else NEWS, linewidth=0.6, alpha=0.25, gid="clue"
+            )
 
     _price_panel(axes[0], model, df, steps)
     _volume_panel(axes[1], df, steps)
@@ -123,9 +133,9 @@ def _style(ax) -> None:
 def _price_panel(ax, model: MarketModel, df, steps: np.ndarray) -> None:
     ax.axhline(50, color=MUTED, linewidth=0.8, linestyle=(0, (2, 3)), zorder=1)
     events = clue_events(model)
-    for e in events:  # faint guides, so each clue's effect on the price can be traced
-        ax.axvline(e.step, color=FAKE if e.fake else NEWS, linewidth=0.6, alpha=0.25, zorder=1)
-    if model.book is not None:
+    if model.book is None:
+        label = "price (LMSR)"
+    else:
         bid = df.best_bid.astype(float).to_numpy()
         ask = df.best_ask.astype(float).to_numpy()
         ax.fill_between(
@@ -133,14 +143,17 @@ def _price_panel(ax, model: MarketModel, df, steps: np.ndarray) -> None:
             bid,
             ask,
             where=np.isfinite(bid) & np.isfinite(ask),
-            color=PRICE,
-            alpha=0.15,
+            color=BAND,
+            alpha=0.7,
             linewidth=0,
             label="best bid to best ask",
             zorder=2,
         )
+        for edge in (bid, ask):
+            ax.plot(steps, edge, color=BAND_EDGE, linewidth=0.5, alpha=0.8, zorder=3)
+        label = f"price (bid-ask midpoint; last trade if spread > {model.config.spread_cap}c)"
     # P* on top: the per-step price is noisy and would hide the benchmark.
-    ax.plot(steps, 100 * df.price, color=PRICE, linewidth=1.2, label="price", zorder=4)
+    ax.plot(steps, 100 * df.price, color=PRICE, linewidth=1.0, label=label, zorder=4)
     ax.plot(steps, 100 * df.p_star, color=P_STAR, linewidth=2, label="P* (benchmark)", zorder=5)
 
     # Clue markers sit in a strip above the price, so they never hide the lines.
@@ -191,7 +204,7 @@ def _volume_panel(ax, df, steps: np.ndarray) -> None:
 
 def _spread_panel(ax, df, steps: np.ndarray) -> None:
     spread = df.spread.astype(float).to_numpy()
-    ax.plot(steps, spread, color=PRICE, linewidth=0.8, drawstyle="steps-post")
+    ax.plot(steps, spread, color=PRICE, linewidth=0.8, drawstyle="steps-post", gid="spread")
     empty = steps[df.empty_book.to_numpy(dtype=bool)]
     if len(empty):
         ax.scatter(

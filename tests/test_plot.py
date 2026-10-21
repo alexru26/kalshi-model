@@ -23,8 +23,12 @@ def kalshi_with_fakes():
 
 
 def line(ax, label: str) -> np.ndarray:
-    (match,) = [ln for ln in ax.get_lines() if ln.get_label() == label]
+    (match,) = [ln for ln in ax.get_lines() if ln.get_label().startswith(label)]
     return np.asarray(match.get_ydata(), dtype=float)
+
+
+def by_gid(ax, gid: str) -> list:
+    return [ln for ln in ax.get_lines() if ln.get_gid() == gid]
 
 
 def markers(ax) -> dict[str, np.ndarray]:
@@ -53,7 +57,7 @@ def test_price_panel_plots_the_recorded_price_and_p_star_in_cents(kalshi_with_fa
     price_ax = price_chart(model).axes[0]
     assert np.allclose(line(price_ax, "price"), 100 * df.price, equal_nan=True)
     assert np.allclose(line(price_ax, "P* (benchmark)"), 100 * df.p_star)
-    (price,) = [ln for ln in price_ax.get_lines() if ln.get_label() == "price"]
+    (price,) = [ln for ln in price_ax.get_lines() if ln.get_label().startswith("price")]
     assert price.get_xdata()[0] == 1  # row r is step r + 1
 
 
@@ -69,6 +73,20 @@ def test_each_released_clue_gets_one_marker_at_its_release_step(kalshi_with_fake
     assert sum(len(v) for k, v in drawn.items() if "clue" in k) == len(events)
 
 
+def test_every_panel_has_a_guide_at_each_clue_release(kalshi_with_fakes):
+    model = kalshi_with_fakes
+    steps = sorted(e.step for e in clue_events(model))
+    fig = price_chart(model)
+    assert len(fig.axes) == 3
+    for ax in fig.axes:
+        assert sorted(ln.get_xdata()[0] for ln in by_gid(ax, "clue")) == steps
+
+
+def test_order_book_price_label_says_it_is_the_midpoint(kalshi_with_fakes):
+    labels = [ln.get_label() for ln in price_chart(kalshi_with_fakes).axes[0].get_lines()]
+    assert "price (bid-ask midpoint; last trade if spread > 10c)" in labels
+
+
 def test_order_book_chart_has_volume_and_spread_panels(kalshi_with_fakes):
     model = kalshi_with_fakes
     df = model.datacollector.get_model_vars_dataframe()
@@ -76,7 +94,7 @@ def test_order_book_chart_has_volume_and_spread_panels(kalshi_with_fakes):
     _, volume_ax, spread_ax = fig.axes
     assert sum(p.get_height() for p in volume_ax.patches) == df.volume.sum()
     assert np.allclose(
-        spread_ax.get_lines()[0].get_ydata(), df.spread.astype(float), equal_nan=True
+        by_gid(spread_ax, "spread")[0].get_ydata(), df.spread.astype(float), equal_nan=True
     )
     empty = markers(spread_ax).get("one side of the book empty", [])
     assert len(empty) == df.empty_book.sum()
