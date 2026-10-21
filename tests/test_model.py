@@ -72,6 +72,25 @@ def test_news_spreads_from_its_seeds_over_the_network():
         holders = [t for t in model.traders if clue_id in t.known]
         assert len(holders) > 7
         assert model.knowers[clue_id] == len(holders)
+    # Relayed true news counts as each listener's own evidence, never as hearsay.
+    assert all(t.n_heard == 0 for t in model.traders)
+
+
+def test_relayed_news_counts_as_own_evidence_and_relayed_fakes_as_hearsay():
+    model = run(Config(n_steps=600, disinfo_ratio=0.2), 3)
+    fakes = set(model.fake_ids)
+    assert fakes
+    for t in model.traders:
+        news = [c for c in t.known if model.config.n_private <= c < model.config.n_clues_total]
+        heard_fakes = [c for c in t.known if c in fakes]
+        private = [c for c in t.known if c < model.config.n_private]
+        seeded_fakes = sum(
+            t.index in model.learned_step[c]
+            and model.learned_step[c][t.index] == model.release_step[c]
+            for c in heard_fakes
+        )
+        assert t.n_own == len(private) + len(news) + seeded_fakes
+        assert t.n_heard == len(heard_fakes) - seeded_fakes
     assert sum(t.n_heard for t in model.traders) > 0
 
 

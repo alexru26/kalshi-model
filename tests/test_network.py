@@ -170,7 +170,9 @@ def test_a_clue_heard_from_many_neighbors_counts_once():
 def test_private_clues_never_spread():
     model = MarketModel(amm_config(n_steps=300, n_clues_total=62, beta=1.0), 2)
     model.run()
-    assert all(t.n_heard <= 2 for t in model.traders)  # only the two news clues
+    dealt = model.traits.n_clues
+    # Each agent holds its dealt private clues plus at most the two news clues.
+    assert all(t.n_own <= min(dealt[t.index], 60) + 2 for t in model.traders)
     assert all(c >= 60 for t in model.traders for c in t.spreading | t.pending)
 
 

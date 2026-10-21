@@ -137,8 +137,9 @@ class Trader(mesa.Agent):
     def learn_own(self, clue_id: int, points_yes: bool, *, spreadable: bool = False) -> bool:
         """See a clue directly; return False if it was already known (then it is ignored).
 
-        Private clues are not `spreadable`; news and fakes delivered to a seed are, and
-        the agent relays them after its next turn.
+        Private clues are not `spreadable`; true news is, whether it reached the agent as a
+        seed or from a neighbor (it can be checked at its source), and so are fakes
+        delivered to a seed. The agent relays spreadable clues after its next turn.
         """
         if clue_id in self.known:
             return False
@@ -150,7 +151,8 @@ class Trader(mesa.Agent):
         return True
 
     def learn_heard(self, clue_id: int, points_yes: bool) -> bool:
-        """Hear a clue from a neighbor; return False if it was already known (ignored)."""
+        """Hear an unverifiable clue (a fake) from a neighbor; return False if it was
+        already known (then it is ignored). Relayed true news is learned as own instead."""
         if clue_id in self.known:
             return False
         self.known.add(clue_id)
