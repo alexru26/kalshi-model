@@ -151,7 +151,8 @@ def _price_panel(ax, model: MarketModel, df, steps: np.ndarray) -> None:
         )
         for edge in (bid, ask):
             ax.plot(steps, edge, color=BAND_EDGE, linewidth=0.5, alpha=0.8, zorder=3)
-        label = f"price (bid-ask midpoint; last trade if spread > {model.config.spread_cap}c)"
+        cap = model.config.spread_cap
+        label = f"price (bid-ask midpoint if the spread is at most {cap}c, else last trade)"
     # P* on top: the per-step price is noisy and would hide the benchmark.
     ax.plot(steps, 100 * df.price, color=PRICE, linewidth=1.0, label=label, zorder=4)
     ax.plot(steps, 100 * df.p_star, color=P_STAR, linewidth=2, label="P* (benchmark)", zorder=5)

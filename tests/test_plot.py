@@ -84,7 +84,7 @@ def test_every_panel_has_a_guide_at_each_clue_release(kalshi_with_fakes):
 
 def test_order_book_price_label_says_it_is_the_midpoint(kalshi_with_fakes):
     labels = [ln.get_label() for ln in price_chart(kalshi_with_fakes).axes[0].get_lines()]
-    assert "price (bid-ask midpoint; last trade if spread > 10c)" in labels
+    assert "price (bid-ask midpoint if the spread is at most 10c, else last trade)" in labels
 
 
 def test_order_book_chart_has_volume_and_spread_panels(kalshi_with_fakes):
