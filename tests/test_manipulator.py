@@ -97,9 +97,7 @@ def test_manipulator_gets_its_cash_share_and_clues_and_counts_in_p_star(runs):
 
 def test_adding_the_manipulator_leaves_world_population_and_news_unchanged(runs):
     none, twin = runs["none"], runs["twin"]
-    assert none.manipulator is None and "manipulator_position" not in (
-        none.datacollector.get_model_vars_dataframe()
-    )
+    assert none.manipulator is None
     assert none.world.y == twin.world.y
     assert np.array_equal(none.traits.cash, twin.traits.cash)
     assert none.release_step == twin.release_step

@@ -79,10 +79,6 @@ def _mm_quoting(m: MarketModel) -> bool:
     return m.market_maker.bid is not None and m.market_maker.ask is not None
 
 
-def _manipulator_position(m: MarketModel) -> int:
-    return m.manipulator.position
-
-
 COMMON_REPORTERS = {"price": _price, "p_star": _p_star, "volume": _volume}
 CLOB_REPORTERS = {
     "best_bid": _best_bid,
@@ -190,8 +186,6 @@ class MarketModel(mesa.Model):
         reporters = dict(COMMON_REPORTERS)
         if self.book is not None:
             reporters |= CLOB_REPORTERS
-        if self.manipulator is not None:
-            reporters["manipulator_position"] = _manipulator_position
         self.datacollector = mesa.DataCollector(model_reporters=reporters)
 
     @property
