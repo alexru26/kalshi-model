@@ -19,6 +19,7 @@ Predictions are written before each experiment runs (`PREDICTIONS.md`) and judge
 ```sh
 uv run python experiments/e1_rules.py         # E1: AMM vs CLOB vs Kalshi
 uv run python experiments/e2_information.py   # E2: networks and disinformation
+uv run python experiments/e3_manipulation.py  # E3: honest twin vs pump and dump vs spoofing
 ```
 
 To see one run, `experiments/plot_run.py` draws its price over time against `P*`, with each news and fake clue's release marked, plus volume and (order book only) the spread. It writes a PNG to `figures/` (gitignored):
