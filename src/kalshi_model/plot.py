@@ -4,7 +4,7 @@ Panels share the step axis, and each has one y-scale:
 
 1. Price and P* in cents, the bid-ask band (order book only), a 50c guide, and a marker
    at each news or fake clue's release (up for a YES clue, down for a NO clue). The
-   outcome and final price are labeled at the right edge.
+   outcome, final price, and final P* are labeled at the right edge.
 2. Contracts traded per bin of steps.
 3. Order book only: the bid-ask spread in cents, with steps where one side of the book
    is empty marked along the bottom.
