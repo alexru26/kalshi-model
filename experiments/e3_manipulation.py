@@ -170,6 +170,16 @@ def counterparties(rows: list[dict], kind: str) -> str:
     return ", ".join(cells)
 
 
+def share_gap(rows: list[dict], kind: str, tier: str) -> tuple[float, float]:
+    """Per seed, `tier`'s share of the contracts of `kind` minus its by-chance share."""
+    gaps = []
+    for r in rows:
+        total = sum(r[f"{kind}_{c}"] for c in COUNTERPARTIES)
+        if total:
+            gaps.append(r[f"{kind}_{tier}"] / total - r[f"share_{tier}"])
+    return mean_ci(gaps)
+
+
 def predictions(results: dict) -> None:
     for strategy, title in (
         ("pump", "E3.1 pump and dump moves the price but loses money"),
@@ -202,6 +212,11 @@ def predictions(results: dict) -> None:
             print(f"  {name:31s}{fmt(*mean_ci(column(rows, metric)), 0)}")
         print(f"  sold to it, share (by chance): {counterparties(rows, 'sold_to')}")
         print(f"  bought from it:                {counterparties(rows, 'bought_from')}")
+        for kind in ("sold_to", "bought_from"):
+            print(
+                f"  top tenth's {kind} share - chance, per seed: "
+                f"{fmt(*share_gap(rows, kind, 'top'), 3)}"
+            )
         gap = column(rows, "buyer_w_depth") - column(rows, "buyer_w_depth_chance")
         print(
             f"  buyers' w_depth: {fmt(*mean_ci(column(rows, 'buyer_w_depth')), 3)}, "
@@ -218,14 +233,17 @@ def predictions(results: dict) -> None:
             )
 
     print("\nE3.3 more liquid runs distort less and for less time")
-    print("  Spearman correlation of depth before the start with distortion, across seeds")
-    for strategy in STRATEGIES:
-        for metric in ("distortion", "distortion_after"):
+    print("  Spearman correlation across seeds of depth before the start (at the last step,")
+    print("  and its mean over the 100 steps before) with distortion and the premium")
+    for depth in ("depth_before", "depth_before_mean"):
+        for strategy in STRATEGIES:
+            for metric in ("distortion", "distortion_after", "premium"):
 
-            def stat(rows: list[dict], metric: str = metric) -> float:
-                return spearman(column(rows, "depth_before"), column(rows, metric))
+                def stat(rows: list[dict], depth: str = depth, metric: str = metric) -> float:
+                    return spearman(column(rows, depth), column(rows, metric))
 
-            print(f"  {strategy:6s} {metric:18s} {fmt_boot(*bootstrap(results, [strategy], stat))}")
+                corr = fmt_boot(*bootstrap(results, [strategy], stat))
+                print(f"  {depth:18s} {strategy:6s} {metric:18s} {corr}")
 
 
 def main(argv: list[str]) -> None:

@@ -311,6 +311,8 @@ DISTORTION_LAGS = (0, 1, 2, 5, 10, 20, 30, 50, 75, 100, 150, 200, 250, 300, 400,
 """Steps after `manip_start` at which the paired distortion is recorded."""
 AFTERMATH = 300
 """Steps after the manipulation layer stops over which lasting distortion is averaged."""
+DEPTH_SPAN = 100
+"""Steps before `manip_start` over which book depth is also averaged (`depth_before_mean`)."""
 COUNTERPARTIES = ("none", "mid", "top", "mm")
 """The manipulator's counterparties: agents by informedness tier, and the market maker."""
 
@@ -335,7 +337,9 @@ def manipulation_metrics(model: MarketModel, twin: MarketModel | None = None) ->
     and so P*, so this is also the change in the signed gap to P*. It is averaged over the
     steps on which the layer acted (`distortion`), over the `AFTERMATH` steps after
     (`distortion_after`), and recorded at each lag in `DISTORTION_LAGS` after
-    `manip_start`. Money taken from others is their P&L at P* in the twin's run minus in
+    `manip_start`. `depth_before` is the book depth within `depth_window` at the end of
+    the step before `manip_start`, and `depth_before_mean` its mean over the `DEPTH_SPAN`
+    steps before. Money taken from others is their P&L at P* in the twin's run minus in
     this run. Counterparties are split by informedness tier (`_tiers`) and the market
     maker: contracts each sold to the manipulator (`sold_to_*`) and bought from it
     (`bought_from_*`) while the layer acted, and each one's share of all contracts traded
@@ -351,6 +355,9 @@ def manipulation_metrics(model: MarketModel, twin: MarketModel | None = None) ->
         "manip_pnl": model.manipulator.pnl / 100,
         "manip_pnl_at_p_star": manipulator_pnl_at_p_star(model),
         "depth_before": float(df.depth.iloc[start - 2]) if start >= 2 else math.nan,
+        "depth_before_mean": _mean(
+            df.depth.to_numpy(dtype=float)[max(0, start - 1 - DEPTH_SPAN) : start - 1]
+        ),
     }
     names = (
         ["premium", "premium_realized", "distortion", "distortion_after", "layer_steps"]
