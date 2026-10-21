@@ -5,13 +5,15 @@ maker were calibrated in Step 7, and again in Step 8b, against real Kalshi patte
 (`experiments/calibrate.py`, `results/calibration.csv`) and are frozen for all
 experiments. `g` (set from lab
 estimates), informedness (set in Step 3), `w_hearsay` and `w_depth` (no data anchor), and
-the network, AMM, and order-upkeep settings are assumptions or starting guesses.
+the network, AMM, and order-upkeep settings are assumptions or starting guesses, and
+the manipulator's settings (E3) are the experimenter's choice.
 """
 
 from dataclasses import dataclass, fields
 
 MECHANISMS = ("amm", "clob")
 NETWORKS = ("erdos_renyi", "watts_strogatz", "barabasi_albert", "holme_kim", "sbm")
+MANIPULATORS = ("none", "twin", "pump", "spoof")
 
 
 def _is_int(value: object) -> bool:
@@ -97,6 +99,36 @@ class Config:
     disinfo_ratio: float = 0.0
     """Fake clues per true news clue (0, 0.05, 0.1, 0.2 give 0, 1, 2, 4 fakes)."""
 
+    # Manipulator (PLAN.md Section 2.3; E3). "none" in E1 and E2; "twin" adds the
+    # manipulator's agent trading honestly throughout (E3's baseline, the honest twin);
+    # "pump" and "spoof" add its manipulation layer from `manip_start`. Order book only.
+    # Every setting is the experimenter's choice (starting guesses, PLAN.md Section 2.3).
+    manipulator: str = "none"
+    manip_n_clues: int = 2
+    """Private clues the manipulator holds: the population's median informedness."""
+    manip_cash_share: float = 0.05
+    """Manipulator's starting cash as a share of all agents' starting cash on the seed."""
+    manip_start: int = 1000
+    """Step on which the manipulation layer starts; before it, and after it ends, the
+    manipulator follows the honest rules."""
+    manip_chunk: int = 2000
+    """Most contracts the pump buys, or the dump sells, per turn."""
+    pump_push: int = 5
+    """Cents above the start price at which the pump stops buying."""
+    pump_max_steps: int = 100
+    """Longest the pump buys, and the dump sells, before moving on."""
+    pump_hold: int = 50
+    """Steps the pump holds its inventory before dumping it."""
+    spoof_size: int = 20_000
+    """Contracts in each fake bid."""
+    spoof_ticks: int = 2
+    """Cents behind the best bid at which the fake bid rests (at most `depth_window`)."""
+    spoof_qty: int = 2000
+    """Contracts the spoofer offers for real at the best ask, reposted whenever its
+    offer has filled or the best ask has moved away from it."""
+    spoof_steps: int = 500
+    """Steps the spoofing lasts."""
+
     # Trait distributions (PLAN.md Section 2.2). Calibrated (Steps 7 and 8b) except informedness,
     # w_hearsay (hearsay_*), w_depth (depth_*), and g.
     # Informedness is heavy-tailed: with mean 20 and dispersion 0.2, about 40% of agents
@@ -154,12 +186,14 @@ class Config:
             "n_clues_dispersion market_trust_shape market_trust_scale depth_alpha "
             "depth_beta kelly_alpha kelly_beta g_alpha g_beta cash_median spread_cap "
             "stale_ticks stale_steps mm_size mm_half_spread mm_max_half_spread mm_alpha "
-            "mm_max_inventory"
+            "mm_max_inventory manip_cash_share manip_start manip_chunk pump_push "
+            "pump_max_steps spoof_size spoof_ticks spoof_qty spoof_steps"
         )
         non_negative = (
             "taker_fee_bp maker_fee_bp n_private n_news_seeds hearsay_gamma hearsay_sigma "
             "noise_scale noise_delta min_edge_scale patience_delta patience_sigma cash_sigma "
-            "activity_sigma depth_window mm_cash mm_skew mm_widen mm_decay"
+            "activity_sigma depth_window mm_cash mm_skew mm_widen mm_decay manip_n_clues "
+            "pump_hold"
         )
         for name in positive.split():
             if not getattr(self, name) > 0:
@@ -204,6 +238,22 @@ class Config:
             raise ValueError("cash_rho must be strictly between -1 and 1")
         if not 0 < self.g_low <= self.g_high <= 1:
             raise ValueError("g must satisfy 0 < g_low <= g_high <= 1")
+        if self.manipulator not in MANIPULATORS:
+            raise ValueError(f"manipulator must be one of {MANIPULATORS}, got {self.manipulator!r}")
+        if self.manipulator != "none" and self.mechanism != "clob":
+            raise ValueError("the manipulator trades only in the order book (mechanism 'clob')")
+        if self.manipulator != "none" and self.manip_start > self.n_steps:
+            raise ValueError("manip_start cannot be after the last step")
+        if self.manip_n_clues > self.n_private:
+            raise ValueError("manip_n_clues cannot exceed n_private")
+        if self.manip_cash_share >= 1:
+            raise ValueError("manip_cash_share must be below 1")
+        if self.pump_push > 98:
+            raise ValueError("pump_push cannot exceed 98 cents")
+        if self.spoof_ticks > self.depth_window:
+            raise ValueError(
+                "spoof_ticks cannot exceed depth_window: agents would never see the fake bid"
+            )
 
 
 def clob_config(**overrides: object) -> Config:
