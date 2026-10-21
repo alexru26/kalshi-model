@@ -24,7 +24,9 @@ The default Kalshi market should reproduce several real patterns at once:
    resolution (Page & Clemen 2013), and miss in the underconfident direction of the
    favorite-longshot bias (Burgi et al. 2025), so the band reaches further above 1.
    The informed earn only when the price leaves them an edge (Grossman & Stiglitz
-   1980), so every setting that met the other patterns had a slope of 1.2 to 1.3.
+   1980), so in the third Step 8b search every setting that met the other patterns
+   had a slope of 1.2 to 1.3. Once relayed news counted as own evidence, 68 settings
+   met them within 0.8-1.25, and the frozen one's slope is 1.10-1.18 on fresh seeds.
    Only the overall slope is fitted, so the favorite-longshot bias at the extremes
    stays an out-of-sample check.
 6. The price beats the agents: its Brier score against the outcome is lower than the

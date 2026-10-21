@@ -55,9 +55,9 @@ class Config:
     # mm_half_spread were calibrated (Steps 7 and 8b); the rest are starting guesses.
     mm_cash: int = 1_000_000
     """Market maker's starting cash, in cents."""
-    mm_size: int = 64
+    mm_size: int = 10
     """Contracts quoted on each side."""
-    mm_half_spread: float = 0.763
+    mm_half_spread: float = 2.47
     """Base half-spread, in cents."""
     mm_max_half_spread: float = 10.0
     mm_alpha: float = 0.1
@@ -109,32 +109,32 @@ class Config:
     hearsay_gamma: float = 0.05
     hearsay_sigma: float = 1.0
     market_trust_shape: float = 2.0
-    market_trust_scale: float = 36.3
+    market_trust_scale: float = 24.5
     depth_alpha: float = 1.0
     depth_beta: float = 9.0
-    noise_scale: float = 0.164
+    noise_scale: float = 0.0589
     """Half-normal scale of belief noise for an agent with no private clues."""
-    noise_delta: float = 0.0984
+    noise_delta: float = 0.0444
     """Belief noise falls by a factor exp(-noise_delta) per private clue: retail traders'
     beliefs are noisier (noise traders, Black 1986; PLAN.md Section 2.2)."""
-    min_edge_scale: float = 1.92
+    min_edge_scale: float = 2.59
     """Half-normal scale of `min_edge`, in cents."""
-    patience_mu: float = -2.39
+    patience_mu: float = 0.843
     patience_delta: float = 0.05
     patience_sigma: float = 1.0
-    kelly_alpha: float = 1.31
-    kelly_beta: float = 8.69
+    kelly_alpha: float = 3.25
+    kelly_beta: float = 6.75
     g_low: float = 0.6
     g_high: float = 1.0
     g_alpha: float = 2.0
     g_beta: float = 2.0
-    cash_median: int = 147_000
+    cash_median: int = 98_400
     """Median starting cash, in cents."""
-    cash_sigma: float = 2.18
-    cash_rho: float = 0.591
+    cash_sigma: float = 2.29
+    cash_rho: float = 0.634
     """Rank correlation (Gaussian copula) of starting cash with informedness: market
     selection leaves more of the money with the well-informed (PLAN.md Section 2.2)."""
-    activity_sigma: float = 0.739
+    activity_sigma: float = 1.06
 
     @property
     def n_fakes(self) -> int:
