@@ -1,6 +1,6 @@
 # Results
 
-Each prediction in `PREDICTIONS.md` against the data, for the Step 8b model: the additive belief rule, cash and belief noise linked to informedness, relayed true news counted as own evidence (fakes stay hearsay), and recalibrated defaults (`PLAN.md` Step 8b). Every configuration ran on seeds 20000-20099 with the conservation invariants checked every step (no violations). Values are means over seeds with 95% intervals: `+-` is a normal interval on the mean or on a paired difference, `[low, high]` a bootstrap interval over seeds (paired across configurations). The per-run data are in `results/e1_rules.csv` and `results/e2_information.csv`. The JSON file beside each records the commit, seeds, and full configurations. `uv run python experiments/e1_rules.py summary` (or `e2_information.py summary`) reprints every number here from those files. A news clue's move is measured over the 300 steps after its release. `uv run python experiments/plot_run.py <seed>` charts a single run.
+Each prediction in `PREDICTIONS.md` against the data, for the Step 8b model: the additive belief rule, cash and belief noise linked to informedness, relayed true news counted as own evidence (fakes stay hearsay), and recalibrated defaults (`PLAN.md` Step 8b). Every configuration ran on seeds 20000-20099 with the conservation invariants checked every step (no violations). Values are means over seeds with 95% intervals: `+-` is a normal interval on the mean or on a paired difference, `[low, high]` a bootstrap interval over seeds (paired across configurations). The per-run data are in `results/e1_rules.csv`, `results/e2_information.csv`, and `results/e3_manipulation.csv`. The JSON file beside each records the commit, seeds, and full configurations. `uv run python experiments/e1_rules.py summary` (or `e2_information.py summary`, `e3_manipulation.py summary`) reprints every number here from those files. A news clue's move is measured over the 300 steps after its release. `uv run python experiments/plot_run.py <seed>` charts a single run.
 
 P&L "at P*" values each agent's closing position at the final `P*` instead of the outcome. Without disinformation this has the same expectation as realized P&L with far less outcome luck (`metrics.expected_pnl`), so it is reported for E1 and for E2 without fakes only.
 
@@ -61,6 +61,33 @@ A news clue moves `P*` by 2.43c on average, so every market now prices news in f
 | E2.4 Echo chambers sustain the largest distortion | **Failed** | The stochastic block model's distortion differs from each other network's by -0.09 to +0.02c (each +- 0.08c, none significant), and by -0.13 to +0.11c in the last quarter (none significant). |
 | E2.5 Distortion grows faster than the ratio | **Failed** | Distortion is proportional to the number of fakes: 0.24, 0.24, and 0.25c per fake (changes -0.00 +- 0.04 and 0.02 +- 0.03c). Each heard fake shifts a belief by a fixed amount, so fakes add up rather than feed on each other. |
 
+## E3. Manipulation
+
+All three configurations add the same manipulator to the Kalshi default (`PLAN.md` Section 2.3): 5% of the agents' cash, median traits at 2 private clues, a turn every step, and a layer from step 1000. Each seed ran the three together. Distortion is the price minus the twin's price on the same seed, in cents; P&L is valued at final `P*`.
+
+| Metric | Twin | Pump and dump | Spoofing |
+|---|---|---|---|
+| Manipulator P&L at `P*` ($/run) | -380 +- 525 | -3,862 +- 1,312 | -387 +- 542 |
+| Premium over the twin at `P*` ($) | - | -3,482 +- 1,129 | -8 +- 164 |
+| Premium, realized at the outcome ($) | - | -5,705 +- 5,043 | -513 +- 801 |
+| Distortion while the layer acts (c) | - | 1.76 +- 0.18 | 0.56 +- 0.15 |
+| Distortion, 300 steps after (c) | - | 0.32 +- 0.23 | -0.07 +- 0.23 |
+| Peak of the mean distortion curve (c) | - | 2.42 [2.19, 2.77], 20 steps in | 0.87 [0.69, 1.19], 75 steps in |
+| Steps until it falls below half the peak | - | 126 [99, 148] | 450 [120, 554] |
+| Steps the layer acted | - | 171 | 500 |
+| Contracts bought / sold by the layer | - | 55,635 / 14,022 | 3,195 / 9,453 |
+| Taken from agents ($/run) | - | -2,448 +- 1,057 | 43 +- 210 |
+| Change in fees ($/run) | - | +1,033 +- 197 | +51 +- 89 |
+| Volume (contracts) | 328,677 | 400,511 | 331,945 |
+
+The market maker's P&L changes by under $3 in either case. The pump reached its 5c target in 78% of runs, but sold back only a quarter of what it bought: the price soon fell to its start, below which the dump does not sell, and it held the rest. The twin's presence alone barely changes the Kalshi default (paired against E1 on the same seeds): mean `|price - P*|` rises by 0.11 +- 0.10c, volume by 11,261 +- 7,983 contracts (3%), and the best-informed tenth earn $24.6 +- 18.8 more per agent at `P*`.
+
+| Prediction | Verdict | Evidence |
+|---|---|---|
+| E3.1 Pump and dump moves the price but loses money | **Held** | While it acts the price sits 1.76 +- 0.18c above the twin's (peak 2.42c), and the pump loses $3,482 +- 1,129 more than its twin. Agents gain $2,448 +- 1,057 from it and the fee pot $1,033 +- 197. The best-informed tenth sold it 55% of its contracts against 37% of all trading by chance (per-seed gap +0.14 +- 0.05). |
+| E3.2 Spoofing profits, to the extent agents read book depth | **Partly held** | The spoofed bid lifts the price 0.56 +- 0.15c while it rests (peak 0.87c), and the agents who buy the spoofer's offers read depth more than agent buyers in general (contract-weighted `w_depth` 0.175 vs 0.139, gap 0.036 +- 0.011). But the spoofer earns no premium (-$8 +- 164). The lift, about half a cent, is below the 1c tick and the minimum edge of most agents; the spoofer sold only 9,453 contracts per run, and its fake bid filled in 44% of runs (3,195 +- 2,561 contracts). |
+| E3.3 More liquid runs distort less, and for less time | **Failed** | Across seeds, depth just before the start is not correlated with distortion while acting (Spearman 0.09 [-0.12, 0.26] pump, -0.07 [-0.25, 0.13] spoof) or after (0.07 [-0.11, 0.27], -0.08 [-0.27, 0.11]). With depth averaged over the 100 steps before, the pump's correlations lean the other way (0.19 [-0.01, 0.37] while acting) and its premium falls with depth (-0.20 [-0.40, -0.00]): in deeper books the pump buys more and loses more rather than moving the price less. |
+
 ## Earlier versions of the model
 
 **First model (Step 8).** The first run of E1 and E2 used the averaging belief rule, `(1 - w_market) * (L_own + w_hearsay * L_heard) + w_market * logit(mid)`, with cash unrelated to informedness and a 90-step news window. Its price stayed within about 5c of 50c (against 19c for `P*`), moved 0.17-0.19 logit units per unit of `logit(P*)`, and missed `P*` by 14c on average, so a 60c price meant about 88% YES. Under it E1.2, E1.3 (small), E2.1, and E2.2 held, E1.1 and E2.3 partly held, and E1.4, E1.5 (reversed), E1.6, E2.4, and E2.5 failed. Because those results could not speak to price accuracy, Step 8b changed the belief rule and linked cash and belief noise to informedness.
@@ -74,4 +101,5 @@ Predictions were never changed. Against the first model, E1.4, E1.5, and E1.6 no
 - Prices now aggregate information: they price news in full, track `P*` within 3.5c in the order books, and are mildly underconfident (calibration slope 1.10-1.18), the direction of the favorite-longshot bias. What they miss is mostly private information held by few agents.
 - Fees act on liquidity and speed, not accuracy. Kalshi's fee cuts volume by 29% and makes 64% of steps trade-free, slows news pricing (half-life about 20 steps longer), and leaves final accuracy unchanged, while the book doubles its depth because agents post free resting orders instead of paying to take.
 - On Kalshi takers lose to makers and the uninformed pay more fees per contract (E1.4, E1.5), as Burgi et al. (2025) find. The informed tenth earn on average, but by amounts that vary widely between seed sets, while the uninformed lose in every set.
+- Manipulation does not pay here. A pump moves the price about 2c for about a hundred steps and loses money to the informed, who sell to it; a spoof lifts the price about half a cent and earns nothing, since agents read depth too little to move past the tick. Neither effect depends on how deep the book was, so the liquidity result of Rasooly & Rozzi (2025) is not reproduced. The spoofing result is conditional on `w_depth`, which has no data anchor.
 - Network structure changes how fast news moves, not where the price ends up. Spreading and pricing are slowest on Watts-Strogatz, distortion and final accuracy are about the same in every network, and fakes add linearly.
