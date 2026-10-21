@@ -113,7 +113,8 @@ class Trader(mesa.Agent):
         self.known: set[int] = set()
         """Ids of every clue the agent knows, so each counts once."""
         self.own_net = 0
-        """# YES - # NO among clues seen directly (private clues and news as a seed)."""
+        """# YES - # NO among own evidence: private clues, every true news clue learned (as a seed
+        or from a neighbor), and fakes delivered as a seed."""
         self.n_own = 0
         self.heard_net = 0
         self.n_heard = 0
