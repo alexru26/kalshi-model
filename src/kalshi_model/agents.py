@@ -45,20 +45,19 @@ def belief_log_odds(
     noise: float,
     z: float,
 ) -> float:
-    """logit(b) = (1 - w_m)(L_own + w_h L_heard) + w_m logit(mid) + w_depth imb + noise z.
+    """logit(b) = L_own + w_h L_heard + w_m logit(mid) + w_depth imb + noise z.
 
-    `w_m = market_trust / (market_trust + n_eff + eps)` with
-    `n_eff = n_own + w_h n_heard`, and `w_m = 0` when there is no reference price.
+    The price counts as evidence from other traders' clues, added to the agent's own.
+    `w_m = market_trust / (market_trust + n_eff + eps)` with `n_eff = n_own + w_h n_heard`
+    discounts it by the share of the market's information the agent thinks it holds,
+    and `w_m = 0` when there is no reference price (PLAN.md Section 2.2).
     """
-    if reference_price is None:
-        w_market = 0.0
-        market_term = 0.0
-    else:
+    market_term = 0.0
+    if reference_price is not None:
         n_eff = n_own + w_hearsay * n_heard
         w_market = market_trust / (market_trust + n_eff + EPS)
         market_term = w_market * logit(reference_price)
-    clue_term = (1 - w_market) * (l_own + w_hearsay * l_heard)
-    return clue_term + market_term + w_depth * imbalance + noise * z
+    return l_own + w_hearsay * l_heard + market_term + w_depth * imbalance + noise * z
 
 
 def perceived_yes(belief_log_odds_value: float, g: float) -> float:
@@ -114,7 +113,8 @@ class Trader(mesa.Agent):
         self.known: set[int] = set()
         """Ids of every clue the agent knows, so each counts once."""
         self.own_net = 0
-        """# YES - # NO among clues seen directly (private clues and news as a seed)."""
+        """# YES - # NO among own evidence: private clues, every true news clue learned (as a seed
+        or from a neighbor), and fakes delivered as a seed."""
         self.n_own = 0
         self.heard_net = 0
         self.n_heard = 0
@@ -138,8 +138,9 @@ class Trader(mesa.Agent):
     def learn_own(self, clue_id: int, points_yes: bool, *, spreadable: bool = False) -> bool:
         """See a clue directly; return False if it was already known (then it is ignored).
 
-        Private clues are not `spreadable`; news and fakes delivered to a seed are, and
-        the agent relays them after its next turn.
+        Private clues are not `spreadable`; true news is, whether it reached the agent as a
+        seed or from a neighbor (it can be checked at its source), and so are fakes
+        delivered to a seed. The agent relays spreadable clues after its next turn.
         """
         if clue_id in self.known:
             return False
@@ -151,7 +152,8 @@ class Trader(mesa.Agent):
         return True
 
     def learn_heard(self, clue_id: int, points_yes: bool) -> bool:
-        """Hear a clue from a neighbor; return False if it was already known (ignored)."""
+        """Hear an unverifiable clue (a fake) from a neighbor; return False if it was
+        already known (then it is ignored). Relayed true news is learned as own instead."""
         if clue_id in self.known:
             return False
         self.known.add(clue_id)

@@ -20,3 +20,11 @@ Predictions are written before each experiment runs (`PREDICTIONS.md`) and judge
 uv run python experiments/e1_rules.py         # E1: AMM vs CLOB vs Kalshi
 uv run python experiments/e2_information.py   # E2: networks and disinformation
 ```
+
+To see one run, `experiments/plot_run.py` draws its price over time against `P*`, with each news and fake clue's release marked, plus volume and (order book only) the spread. It writes a PNG to `figures/` (gitignored):
+
+```sh
+uv run python experiments/plot_run.py 20000                       # Kalshi default, seed 20000
+uv run python experiments/plot_run.py 20000 --market amm          # or clob
+uv run python experiments/plot_run.py 20000 --disinfo 0.2 --network watts_strogatz
+```

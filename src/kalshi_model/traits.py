@@ -2,11 +2,16 @@
 
 Each trait is drawn from its own child of the run's "traits" stream, so changing one
 trait's distribution never changes another trait's draws. Bounded traits use bounded
-distributions, so nothing is clipped. The only links between traits are the two to
-informedness: `w_hearsay` falls and `patience` rises with `n_clues`.
+distributions, so nothing is clipped. The only links between traits are the four to
+informedness: `w_hearsay` and `noise` fall and `patience` and `cash` rise with `n_clues`. The noise
+link scales each agent's drawn noise, so it uses no extra draws. The cash
+link reassigns the drawn cash amounts among agents (a Gaussian copula with correlation
+`cash_rho`), so the cash distribution itself does not change, and it draws from a
+separate child stream spawned after the traits' own, so every other trait is unchanged.
 """
 
 from dataclasses import dataclass, fields
+from statistics import NormalDist
 
 import numpy as np
 
@@ -35,7 +40,7 @@ class Traits:
     n_clues: np.ndarray
     """Private clues requested at setup (int, >= 0; capped at K when dealt)."""
     w_hearsay: np.ndarray
-    """Weight on relayed clues, in (0, 1)."""
+    """Weight on relayed fakes (unverifiable hearsay), in (0, 1)."""
     market_trust: np.ndarray
     """How many clues the agent thinks the price is worth, > 0."""
     w_depth: np.ndarray
@@ -84,7 +89,9 @@ def draw_traits(config: Config, rng: np.random.Generator) -> Traits:
         config.market_trust_shape, config.market_trust_scale, n
     )
     w_depth = streams["w_depth"].beta(config.depth_alpha, config.depth_beta, n)
-    noise = np.abs(streams["noise"].normal(0.0, config.noise_scale, n))
+    noise = np.abs(streams["noise"].normal(0.0, config.noise_scale, n)) * np.exp(
+        -config.noise_delta * n_clues
+    )
     min_edge = np.abs(streams["min_edge"].normal(0.0, config.min_edge_scale, n))
     patience = _logit_normal(
         streams["patience"],
@@ -98,6 +105,9 @@ def draw_traits(config: Config, rng: np.random.Generator) -> Traits:
     cash = np.maximum(
         1, np.rint(streams["cash"].lognormal(np.log(config.cash_median), config.cash_sigma, n))
     ).astype(np.int64)
+    if config.cash_rho:
+        (link,) = rng.spawn(1)  # child after the TRAIT_NAMES children
+        cash = link_to_informedness(cash, n_clues, config.cash_rho, link)
     activity = streams["activity"].lognormal(0.0, config.activity_sigma, n)
 
     return Traits(
@@ -113,6 +123,20 @@ def draw_traits(config: Config, rng: np.random.Generator) -> Traits:
         cash=cash,
         activity=activity,
     )
+
+
+def link_to_informedness(
+    values: np.ndarray, n_clues: np.ndarray, rho: float, rng: np.random.Generator
+) -> np.ndarray:
+    """Reassign `values` among agents so their ranks follow informedness with Gaussian
+    copula correlation `rho`. Ties in `n_clues` are broken at random."""
+    n = len(values)
+    tie_break = rng.random(n)
+    ranks = np.lexsort((tie_break, n_clues)).argsort()
+    normal = NormalDist()
+    scores = np.array([normal.inv_cdf((r + 0.5) / n) for r in ranks.tolist()])
+    latent = rho * scores + np.sqrt(1 - rho**2) * rng.standard_normal(n)
+    return np.sort(values)[latent.argsort().argsort()]
 
 
 def _logit_normal(rng: np.random.Generator, mu: np.ndarray, sigma: float) -> np.ndarray:

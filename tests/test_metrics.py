@@ -8,6 +8,7 @@ from kalshi_model.metrics import (
     NEWS_WINDOW,
     RESPONSE_LAGS,
     degree_quarters,
+    expected_pnl,
     fill_values,
     half_life,
     news_events,
@@ -24,16 +25,16 @@ def run(config: Config, seed: int = 0) -> MarketModel:
 
 @pytest.fixture(scope="module")
 def kalshi_run():
-    """A short Kalshi run: 20 news clues over 300 steps, so several windows fit."""
-    return run(Config(n_steps=300), 4)
+    """A short Kalshi run: 20 news clues over 800 steps, so several windows fit."""
+    return run(Config(n_steps=800), 4)
 
 
 # Half-life of a response curve
 
 
 def test_half_life_interpolates_between_lags():
-    linear = np.array(RESPONSE_LAGS, dtype=float)  # reaches 45 (half of 90) at lag 45
-    assert half_life(linear) == pytest.approx(45.0)
+    linear = np.array(RESPONSE_LAGS, dtype=float)  # reaches half its end value halfway
+    assert half_life(linear) == pytest.approx(NEWS_WINDOW / 2)
     step = np.where(np.array(RESPONSE_LAGS) >= 30, 1.0, 0.0)  # 0 at lag 25, 1 at lag 30
     assert half_life(step) == pytest.approx(27.5)
 
@@ -70,9 +71,9 @@ def test_news_events_measure_the_signed_move_from_the_step_before_release(kalshi
 
 
 def test_fakes_are_not_news_events():
-    clean = news_events(run(Config(n_steps=300), 4))
-    dirty = news_events(run(Config(n_steps=300, disinfo_ratio=0.2), 4))
-    assert len(clean) == len(dirty)
+    clean = news_events(run(Config(n_steps=800), 4))
+    dirty = news_events(run(Config(n_steps=800, disinfo_ratio=0.2), 4))
+    assert len(clean) == len(dirty) > 0
     assert [e["p_star_jump"] for e in clean] == [e["p_star_jump"] for e in dirty]
 
 
@@ -87,6 +88,15 @@ def test_maker_and_taker_values_add_up_to_each_agents_pnl(kalshi_run):
         assert v["maker_value"][i] + v["taker_value"][i] == trader.pnl
     # The market maker only posts, and Kalshi makers pay no fee: agents pay every fee.
     assert v["fees"].sum() == model.book.fees_collected > 0
+
+
+def test_pnl_at_p_star_from_closing_positions_matches_fills_valued_at_p_star(kalshi_run):
+    # Two routes to the same number: each agent's closing position valued at P*, and
+    # each of its fills valued at P*.
+    model = kalshi_run
+    by_fill = fill_values(model, payout=100 * model.p_star)
+    assert np.allclose(expected_pnl(model), (by_fill["maker_value"] + by_fill["taker_value"]) / 100)
+    assert not np.allclose(expected_pnl(model), [t.pnl / 100 for t in model.traders])
 
 
 # The row of one run

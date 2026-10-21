@@ -34,7 +34,7 @@ Managed with `uv` (Python 3.12). CI (`.github/workflows/ci.yml`) runs the same c
 
 ## Open questions
 
-- `Config` defaults are frozen by the Step 7 calibration (`experiments/calibrate.py`); `g`, `w_hearsay`, `w_depth`, informedness, and the network and AMM settings remain assumptions or starting guesses.
+- `g`, `w_hearsay`, `w_depth`, informedness, and the network and AMM settings remain assumptions or starting guesses (calibration covers the rest, `PLAN.md` Steps 7 and 8b).
 - Sources marked † in `SOURCES.md` still need their details verified.
 
 ## Things to remember

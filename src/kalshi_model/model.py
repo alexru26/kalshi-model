@@ -161,6 +161,8 @@ class MarketModel(mesa.Model):
         self._initial_total_cash = self._total_cash()
         self.settled = False
         self._closing_price: float | None = None
+        self.closing_positions: list[int] | None = None
+        """Each trader's YES position when the market closed, just before settlement."""
         self.volume = 0
         """Contracts traded in the current step."""
         self.empty_book_steps = 0
@@ -260,7 +262,12 @@ class MarketModel(mesa.Model):
                 self._known_real.add(clue_id)
 
     def _spread(self, t: int) -> None:
-        """Each spreader tells each neighbor with chance beta; telling a knower stifles it."""
+        """Each spreader tells each neighbor with chance beta; telling a knower stifles it.
+
+        A true news clue is a public report the listener can check at its source, so it
+        counts as the listener's own evidence; a fake has no source to check, so it stays
+        hearsay, weighted by `w_hearsay` (PLAN.md Section 2.4).
+        """
         beta = self.config.beta
         for trader in self.traders:
             if not trader.spreading:
@@ -269,11 +276,18 @@ class MarketModel(mesa.Model):
             for clue_id in sorted(trader.spreading):
                 told = self._clue_rng(clue_id).random(len(neighbors)) < beta
                 points_yes = self.points_yes(clue_id)
+                fake = clue_id >= self.config.n_clues_total
                 told_a_knower = False
                 for neighbor, was_told in zip(neighbors, told.tolist(), strict=True):
                     if not was_told:
                         continue
-                    if self.traders[neighbor].learn_heard(clue_id, points_yes):
+                    listener = self.traders[neighbor]
+                    learned = (
+                        listener.learn_heard(clue_id, points_yes)
+                        if fake
+                        else listener.learn_own(clue_id, points_yes, spreadable=True)
+                    )
+                    if learned:
                         self._count_knower(clue_id, neighbor, t)
                     else:
                         told_a_knower = True
@@ -293,6 +307,7 @@ class MarketModel(mesa.Model):
 
     def _settle(self) -> None:
         self._closing_price = self.price
+        self.closing_positions = [t.position for t in self.traders]
         y = self.world.y
         if self.lmsr is not None:
             for trader in self.traders:

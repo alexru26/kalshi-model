@@ -5,11 +5,11 @@
 P&L in dollars. Metrics that a market does not have (fees and maker fills under the
 AMM, for example) are NaN.
 
-News response: for each real news clue whose 90-step window fits in the run, the
+News response: for each real news clue whose 300-step window fits in the run, the
 price move toward the clue (up for a YES clue, down for a NO clue) from the step
 before its release, at each lag in `RESPONSE_LAGS`. A run's response is the mean over
-its clues. The price stays short of `P*` (beliefs average the price with each agent's
-own evidence), so the gap to the new `P*` rarely halves; the half-life is instead the
+its clues. The price can still stay short of `P*` (underconfident, calibration slope
+1.10-1.18), so the gap to the new `P*` rarely halves; the half-life is instead the
 lag at which the mean move reaches half its size at the window's end (`half_life`,
 computed on the mean curve over seeds).
 """
@@ -24,10 +24,12 @@ from kalshi_model.lmsr import subsidy_cents
 from kalshi_model.model import MarketModel
 from kalshi_model.orderbook import BUY
 
-NEWS_WINDOW = 90
-"""Steps after a news release over which the price response is measured (news comes
-about every 95 steps, so the window ends before the next clue)."""
-RESPONSE_LAGS = (0, 1, 2, 3, 5, 7, 10, 15, 20, 25, 30, 40, 50, 60, 75, 90)
+NEWS_WINDOW = 300
+"""Steps after a news release over which the price response is measured. News comes
+about every 95 steps, so later clues fall inside the window, but their directions are
+independent of this clue's, so they add only noise to the mean move. Step 8 found the
+mean move still growing at 90 steps."""
+RESPONSE_LAGS = (0, 1, 2, 3, 5, 7, 10, 15, 20, 25, 30, 40, 50, 60, 75, 90, 120, 150, 200, 250, 300)
 NEAR_FIFTY = (40.0, 60.0)
 """Prices, in cents, at which the Kalshi fee per contract is near its 50c peak."""
 ERROR_BLOCKS = 10
@@ -162,15 +164,38 @@ def _tiers(model: MarketModel) -> dict[str, np.ndarray]:
 
 def _pnl_by_informedness(model: MarketModel) -> dict[str, float]:
     pnl = np.array([t.pnl for t in model.traders]) / 100
-    return {f"pnl_{name}": _mean(pnl[mask]) for name, mask in _tiers(model).items()}
+    expected = expected_pnl(model)
+    row = {f"pnl_{name}": _mean(pnl[mask]) for name, mask in _tiers(model).items()}
+    return row | {
+        f"pnl_{name}_at_p_star": _mean(expected[mask]) for name, mask in _tiers(model).items()
+    }
 
 
-def fill_values(model: MarketModel) -> dict[str, np.ndarray]:
+def expected_pnl(model: MarketModel) -> np.ndarray:
+    """Each agent's P&L in dollars with its closing position valued at final P* instead
+    of the outcome.
+
+    Without disinformation P* is the exact probability of YES given everything the
+    market knows, so this has the same expectation as the realized P&L with far less
+    outcome luck (Step 8b). With fakes, trades carry information about the outcome
+    (fakes always point against it), so this would be biased: use it only without them.
+    """
+    y, p_star = float(model.world.y), model.p_star
+    realized = np.array([t.pnl for t in model.traders], dtype=float)
+    positions = np.array(model.closing_positions, dtype=float)
+    return (realized - 100 * positions * (y - p_star)) / 100
+
+
+def fill_values(model: MarketModel, payout: float | None = None) -> dict[str, np.ndarray]:
     """Per agent: contracts and settlement value (cents, net of fees) of maker and taker
-    fills, and fees paid. An agent's maker plus taker value is its P&L."""
+    fills, and fees paid. An agent's maker plus taker value is its P&L.
+
+    `payout` is what one YES contract is worth, in cents: the outcome by default, or
+    100 x P* to value fills at the benchmark (see `expected_pnl`).
+    """
     n = len(model.traders)
     out = {k: np.zeros(n) for k in ("maker_qty", "taker_qty", "maker_value", "taker_value", "fees")}
-    payout = 100 * int(model.world.y)
+    payout = 100 * int(model.world.y) if payout is None else payout
     for f in model.book.fills:
         buy_value = f.qty * (payout - f.price)  # what the buyer gains at settlement
         taker_value = buy_value if f.taker_side == BUY else -buy_value
@@ -197,10 +222,13 @@ def _market(model: MarketModel, df) -> dict[str, float]:
             "agent_liquidity_share": nan,
             "maker_return": nan,
             "taker_return": nan,
+            "maker_return_at_p_star": nan,
+            "taker_return_at_p_star": nan,
             "fee_per_contract_none": nan,
             "fee_per_contract_top": nan,
         }
     v = fill_values(model)
+    at_p_star = fill_values(model, payout=100 * model.p_star)
     maker_qty, taker_qty = v["maker_qty"].sum(), v["taker_qty"].sum()
     total_qty = sum(f.qty for f in model.book.fills)
     tiers = _tiers(model)
@@ -219,6 +247,12 @@ def _market(model: MarketModel, df) -> dict[str, float]:
         "agent_liquidity_share": float(maker_qty / total_qty) if total_qty else math.nan,
         "maker_return": float(v["maker_value"].sum() / maker_qty) if maker_qty else math.nan,
         "taker_return": float(v["taker_value"].sum() / taker_qty) if taker_qty else math.nan,
+        "maker_return_at_p_star": float(at_p_star["maker_value"].sum() / maker_qty)
+        if maker_qty
+        else math.nan,
+        "taker_return_at_p_star": float(at_p_star["taker_value"].sum() / taker_qty)
+        if taker_qty
+        else math.nan,
         "fee_per_contract_none": fee_per_contract(tiers["none"]),
         "fee_per_contract_top": fee_per_contract(tiers["top"]),
     }
@@ -261,4 +295,6 @@ def _network(model: MarketModel) -> dict[str, float]:
         "learn_delay_bottom_degree": _mean(delay[bottom]),
         "pnl_top_degree": _mean(pnl[top]),
         "pnl_bottom_degree": _mean(pnl[bottom]),
+        "pnl_top_degree_at_p_star": _mean(expected_pnl(model)[top]),
+        "pnl_bottom_degree_at_p_star": _mean(expected_pnl(model)[bottom]),
     }

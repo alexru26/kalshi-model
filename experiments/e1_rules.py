@@ -43,7 +43,7 @@ def per_config_table(results: dict) -> None:
         ("error_late", "same, second half (c)"),
         ("brier", "final Brier"),
         ("aggregation_loss", "final (price - P*)^2"),
-        (END, "news move by lag 90 (c)"),
+        (END, f"news move by lag {NEWS_WINDOW} (c)"),
         ("p_star_jump", "P* jump per news (c)"),
         ("volume", "volume (contracts)"),
         ("no_trade_share", "no-trade steps"),
@@ -55,6 +55,8 @@ def per_config_table(results: dict) -> None:
         ("agent_liquidity_share", "contracts with agent maker"),
         ("pnl_none", "P&L, no clues ($/agent)"),
         ("pnl_top", "P&L, top tenth ($/agent)"),
+        ("pnl_none_at_p_star", "same at P*, no clues"),
+        ("pnl_top_at_p_star", "same at P*, top tenth"),
     ]
     print(f"{'metric':32s}" + "".join(f"{label:>22s}" for label in CONFIGS))
     for metric, name in metrics:
@@ -74,7 +76,7 @@ def predictions(results: dict) -> None:
         return fmt(*paired(results, metric, a, b), digits)
 
     print("\nE1.1 fee slows news pricing, most near 50c (Kalshi - CLOB)")
-    print(f"  news move by lag 90 (c):         {diff(END, 'clob', 'kalshi')}")
+    print(f"  news move by lag {NEWS_WINDOW} (c):         {diff(END, 'clob', 'kalshi')}")
     print(f"    news arriving at 40-60c:       {diff('response_near50', 'clob', 'kalshi')}")
     print(f"    news arriving outside 40-60c:  {diff('response_far', 'clob', 'kalshi')}")
 
@@ -119,6 +121,11 @@ def predictions(results: dict) -> None:
     print(f"  taker return:          {fmt(*mean_ci([r['taker_return'] for r in k]))}")
     gaps = [r["maker_return"] - r["taker_return"] for r in k]
     print(f"  maker - taker (paired): {fmt(*mean_ci(gaps))}")
+    # Valued at P* (no fakes in E1): the same expectation without the outcome's luck.
+    print(f"  maker return at P*:     {fmt(*mean_ci([r['maker_return_at_p_star'] for r in k]))}")
+    print(f"  taker return at P*:     {fmt(*mean_ci([r['taker_return_at_p_star'] for r in k]))}")
+    gaps = [r["maker_return_at_p_star"] - r["taker_return_at_p_star"] for r in k]
+    print(f"  maker - taker at P*:    {fmt(*mean_ci(gaps))}")
 
     print("\nE1.5 fee per contract traded on Kalshi (cents)")
     print(f"  no clues:     {fmt(*mean_ci([r['fee_per_contract_none'] for r in k]))}")
@@ -129,7 +136,7 @@ def predictions(results: dict) -> None:
     print("\nE1.6 the AMM prices news fastest (AMM - CLOB)")
     hl = bootstrap(results, ["clob", "amm"], lambda c, a: curve_half_life(a) - curve_half_life(c))
     print(f"  half-life difference (steps): {fmt_boot(*hl)}")
-    print(f"  news move by lag 90 (c):      {diff(END, 'clob', 'amm')}")
+    print(f"  news move by lag {NEWS_WINDOW} (c):      {diff(END, 'clob', 'amm')}")
     lmsr = [r["maker_pnl"] for r in results["amm"].values()]
     print(f"  LMSR P&L ($):                 {fmt(*mean_ci(lmsr), 2)}")
 
