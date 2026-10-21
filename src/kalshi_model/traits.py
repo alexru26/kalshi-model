@@ -40,7 +40,7 @@ class Traits:
     n_clues: np.ndarray
     """Private clues requested at setup (int, >= 0; capped at K when dealt)."""
     w_hearsay: np.ndarray
-    """Weight on relayed clues, in (0, 1)."""
+    """Weight on relayed fakes (unverifiable hearsay), in (0, 1)."""
     market_trust: np.ndarray
     """How many clues the agent thinks the price is worth, > 0."""
     w_depth: np.ndarray

@@ -15,8 +15,9 @@ learns one (as a seed or from a neighbor) keeps it until it has had its next tur
 trade (van Bommel 2003), then becomes a spreader. Each step a spreader tells each
 neighbor with probability `beta`. Like Daley & Kendall's (1964) stiflers, a spreader
 stops retelling a clue once it has told it to someone who already knew it. A told
-neighbor counts the clue as heard; whoever already knows a clue ignores it, so each
-clue counts once however many neighbors relay it.
+neighbor counts a true news clue as its own evidence (it can be checked at its source)
+and a fake as heard; whoever already knows a clue ignores it, so each clue counts once
+however many neighbors relay it.
 """
 
 from __future__ import annotations
