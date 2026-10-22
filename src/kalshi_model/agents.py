@@ -9,12 +9,14 @@ the market resolves, its cash after settlement is never negative.
 from __future__ import annotations
 
 import math
+from collections.abc import Hashable, Mapping
 from typing import TYPE_CHECKING
 
 import mesa
 
 from kalshi_model.fees import MICRO_PER_CENT, exact_fee
 from kalshi_model.orderbook import BUY, SELL, Account, OrderBook
+from kalshi_model.traits import TRAIT_NAMES
 from kalshi_model.world import clue_log_odds, sigmoid
 
 if TYPE_CHECKING:
@@ -88,19 +90,31 @@ class Trader(mesa.Agent):
 
     model: MarketModel
 
-    def __init__(self, model: MarketModel, index: int) -> None:
+    def __init__(
+        self,
+        model: MarketModel,
+        index: int,
+        *,
+        owner: Hashable | None = None,
+        traits: Mapping[str, float] | None = None,
+    ) -> None:
+        """Agent `index` of the population, with its drawn traits; `traits` sets them
+        instead (the manipulator's), and `owner` names its order-book account (default
+        `index`)."""
         super().__init__(model)
         self.index = index
-        traits = model.traits
-        self.w_hearsay = float(traits.w_hearsay[index])
-        self.market_trust = float(traits.market_trust[index])
-        self.w_depth = float(traits.w_depth[index])
-        self.noise = float(traits.noise[index])
-        self.min_edge = float(traits.min_edge[index])
-        self.patience = float(traits.patience[index])
-        self.kelly_frac = float(traits.kelly_frac[index])
-        self.g = float(traits.g[index])
-        self.initial_cash = int(traits.cash[index])
+        self.owner = index if owner is None else owner
+        if traits is None:
+            traits = {name: getattr(model.traits, name)[index] for name in TRAIT_NAMES}
+        self.w_hearsay = float(traits["w_hearsay"])
+        self.market_trust = float(traits["market_trust"])
+        self.w_depth = float(traits["w_depth"])
+        self.noise = float(traits["noise"])
+        self.min_edge = float(traits["min_edge"])
+        self.patience = float(traits["patience"])
+        self.kelly_frac = float(traits["kelly_frac"])
+        self.g = float(traits["g"])
+        self.initial_cash = int(traits["cash"])
 
         self.account = Account(cash=self.initial_cash, deposited=self.initial_cash)
         """Cash and position. In a CLOB run the model swaps in the order book's account."""
@@ -253,7 +267,7 @@ class Trader(mesa.Agent):
         """Cancel orders whose edge fell below `min_edge` or that sat stale too long."""
         config = self.model.config
         open_ids = set()
-        for order in book.open_orders(self.index):
+        for order in book.open_orders(self.owner):
             maker_fee = self._fee_per_contract(order.price, book.maker_fee_bp)
             if order.side == BUY:
                 edge = value - order.price - maker_fee
@@ -311,7 +325,7 @@ class Trader(mesa.Agent):
         rate = book.maker_fee_bp
         buy = value >= (50.0 if reference is None else 100 * reference)
         resting = sum(
-            o.remaining for o in book.open_orders(self.index) if o.side == (BUY if buy else SELL)
+            o.remaining for o in book.open_orders(self.owner) if o.side == (BUY if buy else SELL)
         )
         if buy:
             price = math.floor(value - self.min_edge)
@@ -347,13 +361,13 @@ class Trader(mesa.Agent):
         lo, hi = 0, max(0, wanted)
         while lo < hi:
             mid = (lo + hi + 1) // 2
-            if book.can_submit(self.index, side, price, mid, ioc=ioc):
+            if book.can_submit(self.owner, side, price, mid, ioc=ioc):
                 lo = mid
             else:
                 hi = mid - 1
         if lo == 0:
             return 0
-        fills = book.submit(self.index, side, price, lo, ioc=ioc).fills
+        fills = book.submit(self.owner, side, price, lo, ioc=ioc).fills
         return sum(f.qty for f in fills)
 
     def settle(self, y: bool) -> None:

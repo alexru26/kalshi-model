@@ -12,6 +12,9 @@ its clues. The price can still stay short of `P*` (underconfident, calibration s
 1.10-1.18), so the gap to the new `P*` rarely halves; the half-life is instead the
 lag at which the mean move reaches half its size at the window's end (`half_life`,
 computed on the mean curve over seeds).
+
+E3 adds `manipulation_metrics`, which compares a manipulated run with its honest twin
+on the same seed.
 """
 
 from __future__ import annotations
@@ -21,6 +24,8 @@ import math
 import numpy as np
 
 from kalshi_model.lmsr import subsidy_cents
+from kalshi_model.manipulator import OWNER as MANIPULATOR
+from kalshi_model.market_maker import OWNER as MM
 from kalshi_model.model import MarketModel
 from kalshi_model.orderbook import BUY
 
@@ -298,3 +303,167 @@ def _network(model: MarketModel) -> dict[str, float]:
         "pnl_top_degree_at_p_star": _mean(expected_pnl(model)[top]),
         "pnl_bottom_degree_at_p_star": _mean(expected_pnl(model)[bottom]),
     }
+
+
+# E3: manipulation (PLAN.md Sections 2.3 and 3).
+
+DISTORTION_LAGS = (0, 1, 2, 5, 10, 20, 30, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1000)
+"""Steps after `manip_start` at which the paired distortion is recorded."""
+AFTERMATH = 300
+"""Steps after the manipulation layer stops over which lasting distortion is averaged."""
+DEPTH_SPAN = 100
+"""Steps before `manip_start` over which book depth is also averaged (`depth_before_mean`)."""
+COUNTERPARTIES = ("none", "mid", "top", "mm")
+"""The manipulator's counterparties: agents by informedness tier, and the market maker."""
+
+
+def distortion_column(lag: int) -> str:
+    return f"distortion_{lag:04d}"
+
+
+def manipulator_pnl_at_p_star(model: MarketModel) -> float:
+    """The manipulator's P&L in dollars, its closing position valued at final P*."""
+    man = model.manipulator
+    y, p_star = float(model.world.y), model.p_star
+    return (man.pnl - 100 * man.closing_position * (y - p_star)) / 100
+
+
+def manipulation_metrics(model: MarketModel, twin: MarketModel | None = None) -> dict[str, float]:
+    """The manipulator's P&L and, against the honest twin on the same seed, what its
+    manipulation did (NaN for the twin itself, `twin=None`).
+
+    Distortion is the price gap to the twin's run step by step, `price - twin price` in
+    cents (both strategies push the price up). Both runs share the world, the population,
+    and so P*, so this is also the change in the signed gap to P*. It is averaged over the
+    steps on which the layer acted (`distortion`), over the `AFTERMATH` steps after
+    (`distortion_after`), and recorded at each lag in `DISTORTION_LAGS` after
+    `manip_start`. `depth_before` is the book depth within `depth_window` at the end of
+    the step before `manip_start`, and `depth_before_mean` its mean over the `DEPTH_SPAN`
+    steps before. Money taken from others is their P&L at P* in the twin's run minus in
+    this run. Counterparties are split by informedness tier (`_tiers`) and the market
+    maker: contracts each sold to the manipulator (`sold_to_*`) and bought from it
+    (`bought_from_*`) while the layer acted, and each one's share of all contracts traded
+    in the twin's run over the same steps (`share_*`), the share it would have by chance.
+    `buyer_w_depth` is the contract-weighted `w_depth` of the agents who bought from the
+    manipulator, and `buyer_w_depth_chance` the same for every agent buyer in the twin's
+    run over those steps.
+    """
+    config = model.config
+    df = model.datacollector.get_model_vars_dataframe()
+    start = config.manip_start
+    row: dict[str, float] = {
+        "manip_pnl": model.manipulator.pnl / 100,
+        "manip_pnl_at_p_star": manipulator_pnl_at_p_star(model),
+        "depth_before": float(df.depth.iloc[start - 2]) if start >= 2 else math.nan,
+        "depth_before_mean": _mean(
+            df.depth.to_numpy(dtype=float)[max(0, start - 1 - DEPTH_SPAN) : start - 1]
+        ),
+    }
+    names = (
+        ["premium", "premium_realized", "distortion", "distortion_after", "layer_steps"]
+        + [distortion_column(k) for k in DISTORTION_LAGS]
+        + ["taken_from_agents", "taken_from_mm", "fees_change", "pump_reached"]
+        + ["bought", "sold", "fake_filled", "buyer_w_depth", "buyer_w_depth_chance"]
+        + [f"{kind}_{c}" for kind in ("sold_to", "bought_from", "share") for c in COUNTERPARTIES]
+    )
+    if twin is None:
+        return row | dict.fromkeys(names, math.nan)
+
+    price = 100 * df.price.to_numpy(dtype=float)
+    twin_price = 100 * twin.datacollector.get_model_vars_dataframe().price.to_numpy(dtype=float)
+    gap = price - twin_price  # row i is step i + 1
+    steps = model.manipulator.layer_steps
+    end = steps[-1] + 1 if steps else start
+    row |= {
+        "premium": row["manip_pnl_at_p_star"] - manipulator_pnl_at_p_star(twin),
+        "premium_realized": (model.manipulator.pnl - twin.manipulator.pnl) / 100,
+        "distortion": _mean(gap[[t - 1 for t in steps]]),
+        "distortion_after": _mean(gap[end - 1 : end - 1 + AFTERMATH]),
+        "layer_steps": float(len(steps)),
+    }
+    for lag in DISTORTION_LAGS:
+        i = start - 1 + lag
+        row[distortion_column(lag)] = float(gap[i]) if i < len(gap) else math.nan
+
+    def mm_at_p_star(m: MarketModel) -> float:
+        account = m.market_maker.account
+        y, p_star = float(m.world.y), m.p_star
+        realized = account.cash - m.config.mm_cash
+        return (realized - 100 * m.market_maker.closing_position * (y - p_star)) / 100
+
+    row |= {
+        "taken_from_agents": float(expected_pnl(twin).sum() - expected_pnl(model).sum()),
+        "taken_from_mm": mm_at_p_star(twin) - mm_at_p_star(model),
+        "fees_change": (model.book.fees_collected - twin.book.fees_collected) / 100,
+        "pump_reached": float(model.manipulator.pump_reached)
+        if config.manipulator == "pump"
+        else math.nan,
+    }
+    row |= _counterparties(model, twin, set(steps))
+    return row
+
+
+def _counterparties(model: MarketModel, twin: MarketModel, steps: set[int]) -> dict[str, float]:
+    """Who traded with the manipulator while its layer acted, and by-chance shares."""
+    tier_of = np.empty(len(model.traders), dtype=object)
+    for name, mask in _tiers(model).items():
+        tier_of[mask] = name
+
+    def side(owner) -> str | None:
+        if owner == MANIPULATOR:
+            return None
+        return "mm" if owner == MM else tier_of[owner]
+
+    kinds = ("sold_to", "bought_from", "share")
+    row = {f"{kind}_{c}": 0.0 for kind in kinds for c in COUNTERPARTIES}
+    bought = sold = fake = 0
+    w_depth = model.traits.w_depth
+    depth_weighted = 0.0
+    for fill, step in _fills_with_steps(model):
+        if step not in steps or MANIPULATOR not in (fill.taker, fill.maker):
+            continue
+        manip_buys = (fill.taker == MANIPULATOR) == (fill.taker_side == BUY)
+        other = fill.maker if fill.taker == MANIPULATOR else fill.taker
+        if manip_buys:
+            bought += fill.qty
+            row[f"sold_to_{side(other)}"] += fill.qty
+            fake += fill.qty if fill.maker == MANIPULATOR else 0
+        else:
+            sold += fill.qty
+            row[f"bought_from_{side(other)}"] += fill.qty
+            if isinstance(other, int):
+                depth_weighted += fill.qty * w_depth[other]
+    agent_bought = sum(row[f"bought_from_{c}"] for c in ("none", "mid", "top"))
+    total = chance_bought = 0
+    chance_weighted = 0.0
+    for fill, step in _fills_with_steps(twin):
+        if step not in steps:
+            continue
+        for owner in (fill.taker, fill.maker):
+            if side(owner) is not None:
+                row[f"share_{side(owner)}"] += fill.qty
+                total += fill.qty
+        buyer = fill.taker if fill.taker_side == BUY else fill.maker
+        if isinstance(buyer, int):
+            chance_bought += fill.qty
+            chance_weighted += fill.qty * w_depth[buyer]
+    for c in COUNTERPARTIES:
+        row[f"share_{c}"] = row[f"share_{c}"] / total if total else math.nan
+    return row | {
+        "bought": float(bought),
+        "sold": float(sold),
+        "fake_filled": float(fake) if model.config.manipulator == "spoof" else math.nan,
+        "buyer_w_depth": float(depth_weighted / agent_bought) if agent_bought else math.nan,
+        "buyer_w_depth_chance": float(chance_weighted / chance_bought)
+        if chance_bought
+        else math.nan,
+    }
+
+
+def _fills_with_steps(model: MarketModel):
+    """Each order-book fill with the step it happened on."""
+    start = 0
+    for step, mark in enumerate(model.fill_marks, start=1):
+        for fill in model.book.fills[start:mark]:
+            yield fill, step
+        start = mark

@@ -40,6 +40,8 @@ class MarketMaker:
         self.bid: int | None = None
         self.ask: int | None = None
         self._fills_seen = len(book.fills)
+        self.closing_position: int | None = None
+        """Inventory when the market closed, just before settlement."""
 
     @property
     def half_spread(self) -> float:

@@ -66,6 +66,20 @@ def run_experiment(
     jobs = [(label, config, seed) for label, config in configs.items() for seed in seeds]
     with ProcessPoolExecutor(workers) as pool:
         rows = list(pool.map(run_one, jobs, chunksize=2))
+    write_results(name, rows, configs, seeds, commit, results_dir)
+    return rows
+
+
+def write_results(
+    name: str,
+    rows: list[dict],
+    configs: dict[str, Config],
+    seeds: range,
+    commit: str,
+    results_dir: Path = RESULTS_DIR,
+) -> None:
+    """Write the rows to results/<name>.csv, and to results/<name>.json the commit the
+    code ran at (`git_commit()`, taken before the runs), the seeds, and the configurations."""
     results_dir.mkdir(exist_ok=True)
     with (results_dir / f"{name}.csv").open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0]))
@@ -77,7 +91,6 @@ def run_experiment(
         "configs": {label: asdict(config) for label, config in configs.items()},
     }
     (results_dir / f"{name}.json").write_text(json.dumps(meta, indent=2) + "\n")
-    return rows
 
 
 def load(name: str, results_dir: Path = RESULTS_DIR) -> dict[str, dict[int, dict]]:

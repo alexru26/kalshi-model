@@ -2,12 +2,14 @@
 
 Each step releases scheduled news and fake clues to seed agents, spreads clues one step
 along the social network, lets the CLOB's market maker requote, then gives an
-activity-weighted sample of agents a turn, then records the step. After
-the last step the market settles. Under the AMM agents trade with the LMSR; under the
-CLOB they trade in the order book, whose accounts hold every trader's cash and position.
-Every random part draws from its own stream (see `rng.py`), and the turn order, belief
-noise, and news seeds use the same number of draws in every configuration, so a seed
-gives the same population, world, and turn sequence whatever the market rules.
+activity-weighted sample of agents a turn, then records the step. In E3 the manipulator
+(or its honest twin) also takes a turn every step, in a random slot among the agents'.
+After the last step the market settles. Under the AMM agents trade with the LMSR; under
+the CLOB they trade in the order book, whose accounts hold every trader's cash and
+position. Every random part draws from its own stream (see `rng.py`), and the turn
+order, belief noise, and news seeds use the same number of draws in every
+configuration, so a seed gives the same population, world, and turn sequence whatever
+the market rules and whether or not a manipulator is present.
 """
 
 from __future__ import annotations
@@ -20,6 +22,8 @@ import numpy as np
 from kalshi_model.agents import Trader, solvent
 from kalshi_model.config import Config
 from kalshi_model.lmsr import LMSR
+from kalshi_model.manipulator import OWNER as MANIPULATOR
+from kalshi_model.manipulator import Manipulator
 from kalshi_model.market_maker import MarketMaker
 from kalshi_model.network import build_network, place_agents
 from kalshi_model.orderbook import BUY, SELL, OrderBook
@@ -142,7 +146,15 @@ class MarketModel(mesa.Model):
         for trader, hand in zip(self.traders, hands, strict=True):
             for clue_id in hand.tolist():
                 trader.learn_own(clue_id, bool(self.world.points_yes[clue_id]))
-        self._known_real: set[int] = set().union(*(t.known for t in self.traders))
+        self.manipulator: Manipulator | None = None
+        """The manipulator or its honest twin (E3), trading every step; not a trader."""
+        if config.manipulator != "none":
+            self.manipulator = Manipulator(self, streams["manipulator"])
+            self.manipulator.account = self.book.open_account(
+                MANIPULATOR, self.manipulator.initial_cash
+            )
+        holders = self.traders if self.manipulator is None else [*self.traders, self.manipulator]
+        self._known_real: set[int] = set().union(*(t.known for t in holders))
 
         # Information layer: the network, and fake clues numbered after the real ones.
         self.graph = build_network(config, streams["network"])
@@ -167,6 +179,9 @@ class MarketModel(mesa.Model):
         """Contracts traded in the current step."""
         self.empty_book_steps = 0
         """CLOB steps that ended with no bid or no offer in the book."""
+        self.fill_marks: list[int] = []
+        """CLOB fills recorded by the end of each step: step t's fills are
+        `book.fills[fill_marks[t - 2]:fill_marks[t - 1]]` (from 0 for step 1)."""
 
         reporters = dict(COMMON_REPORTERS)
         if self.book is not None:
@@ -218,11 +233,21 @@ class MarketModel(mesa.Model):
                 self.traders[index].finish_turn()
         else:
             fills_before = len(self.book.fills)
+            slot = None
+            if self.manipulator is not None:
+                slot, manip_z, manip_u = self.manipulator.draw_turn(n_turns)
             self.market_maker.requote()
-            for index, z, u in zip(order.tolist(), noise, patience_draws, strict=True):
+            for turn, (index, z, u) in enumerate(
+                zip(order.tolist(), noise, patience_draws, strict=True)
+            ):
+                if turn == slot:
+                    self.manipulator.take_turn(self.book, manip_z, manip_u, t)
                 self.traders[index].take_turn_clob(self.book, z, u, t)
                 self.traders[index].finish_turn()
+            if slot == n_turns:
+                self.manipulator.take_turn(self.book, manip_z, manip_u, t)
             self.volume = sum(f.qty for f in self.book.fills[fills_before:])
+            self.fill_marks.append(len(self.book.fills))
             if self.book.best_bid is None or self.book.best_ask is None:
                 self.empty_book_steps += 1
 
@@ -308,6 +333,10 @@ class MarketModel(mesa.Model):
     def _settle(self) -> None:
         self._closing_price = self.price
         self.closing_positions = [t.position for t in self.traders]
+        if self.market_maker is not None:
+            self.market_maker.closing_position = self.market_maker.account.position
+        if self.manipulator is not None:
+            self.manipulator.closing_position = self.manipulator.position
         y = self.world.y
         if self.lmsr is not None:
             for trader in self.traders:
@@ -330,6 +359,10 @@ class MarketModel(mesa.Model):
             for trader in self.traders:
                 if trader.account is not self.book.account(trader.index):
                     raise InvariantError(f"trader {trader.index} is off the order book's ledger")
+            if self.manipulator is not None and self.manipulator.account is not (
+                self.book.account(MANIPULATOR)
+            ):
+                raise InvariantError("the manipulator is off the order book's ledger")
             if self._total_cash() != self._initial_total_cash:
                 raise InvariantError("cash + fees changed")
             return
