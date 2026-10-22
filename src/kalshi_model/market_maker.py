@@ -51,6 +51,8 @@ class MarketMaker:
 
     def requote(self) -> None:
         """Cancel both quotes, learn from fills since the last requote, and quote again."""
+        if self.config.mm_size == 0:  # turned off: never quotes, so never fills
+            return
         self.book.cancel_all(OWNER)
         self._learn()
         cfg = self.config

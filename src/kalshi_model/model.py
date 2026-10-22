@@ -15,6 +15,7 @@ the market rules and whether or not a manipulator is present.
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 
 import mesa
 import numpy as np
@@ -99,7 +100,8 @@ class InvariantError(AssertionError):
 class MarketModel(mesa.Model):
     """One prediction market run.
 
-    `traits` replaces the drawn population (for limit-case tests). With `debug`, the
+    `traits` replaces the drawn population (for limit-case tests); `fixed_traits` instead
+    pins chosen traits while the rest are drawn (`traits.draw_traits`). With `debug`, the
     conservation invariants are checked after every step.
     """
 
@@ -109,8 +111,11 @@ class MarketModel(mesa.Model):
         seed: int = 0,
         *,
         traits: Traits | None = None,
+        fixed_traits: Mapping[str, object] | None = None,
         debug: bool = False,
     ) -> None:
+        if traits is not None and fixed_traits:
+            raise ValueError("pass either traits or fixed_traits, not both")
         super().__init__(rng=seed)
         self.config = config = config or Config()
         self.seed = seed
@@ -127,7 +132,9 @@ class MarketModel(mesa.Model):
         self._disinfo_rng = streams["disinformation"]
 
         self.world = make_world(config, streams["world"])
-        self.traits = traits if traits is not None else draw_traits(config, streams["traits"])
+        if traits is None:
+            traits = draw_traits(config, streams["traits"], fixed_traits)
+        self.traits = traits
         if len(self.traits) != config.n_agents:
             raise ValueError("traits must have one entry per agent (config.n_agents)")
 

@@ -29,3 +29,20 @@ uv run python experiments/plot_run.py 20000                       # Kalshi defau
 uv run python experiments/plot_run.py 20000 --market amm          # or clob
 uv run python experiments/plot_run.py 20000 --disinfo 0.2 --network watts_strogatz
 ```
+
+### Custom configurations
+
+To explore small or simple systems, write a TOML file and pass it with `--config`. It may set `market` (`kalshi`, `clob`, or `amm`), any `Config` field (`src/kalshi_model/config.py`), and a `[traits]` table that pins agent traits to exact values, either one value for every agent or a list with one value per agent. Unpinned traits are drawn as usual. `n_clues_total = 0` removes all information, `mean_degree = 0` removes the network, and `mm_size = 0` turns off the market maker. Examples are in `configs/`:
+
+```sh
+uv run python experiments/plot_run.py --config configs/two_agents_no_info.toml
+uv run python experiments/plot_run.py 7 --config configs/informed_vs_uninformed.toml
+uv run python experiments/plot_run.py --config configs/small_network_news.toml
+```
+
+`--set key=value` overrides one setting on top of the file (or the defaults), and `traits.<name>` pins a trait:
+
+```sh
+uv run python experiments/plot_run.py --config configs/two_agents_no_info.toml --set traits.noise=0.5
+uv run python experiments/plot_run.py --config configs/informed_vs_uninformed.toml --set "traits.n_clues=[10, 10]"
+```

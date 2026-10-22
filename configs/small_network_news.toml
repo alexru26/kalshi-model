@@ -1,0 +1,20 @@
+# Ten uninformed agents on a ring (each linked to its two neighbors), learning only from
+# 10 news clues that spread along the ring. Fee-free order book with the market maker.
+# Run: uv run python experiments/plot_run.py --config configs/small_network_news.toml
+market = "clob"
+
+n_agents = 10
+turns_per_step = 5
+n_steps = 1000
+
+n_clues_total = 10        # no private clues; all 10 are news
+n_private = 0
+n_news_seeds = 1          # each news clue starts with one agent
+network = "watts_strogatz"
+mean_degree = 2
+ws_rewire = 0.0           # a plain ring, no shortcuts
+beta = 0.5
+
+[traits]
+n_clues = 0
+cash = 100_000

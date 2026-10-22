@@ -22,6 +22,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from matplotlib.figure import Figure
+from matplotlib.ticker import MaxNLocator
 
 from kalshi_model.model import MarketModel
 
@@ -58,6 +59,20 @@ def clue_events(model: MarketModel) -> list[ClueEvent]:
         ClueEvent(clue_id, step, model.points_yes(clue_id), clue_id in fakes)
         for clue_id, step in sorted(model.release_step.items(), key=lambda item: item[::-1])
     ]
+
+
+def run_label(model: MarketModel) -> str:
+    """The market, seed, network, and disinformation ratio of a run, for chart titles."""
+    config = model.config
+    if model.book is None:
+        market = "AMM (LMSR)"
+    else:
+        market = "Kalshi" if config.taker_fee_bp else "CLOB, no fees"
+    network = f"{config.network} network" if config.mean_degree else "no network"
+    label = f"{market}, seed {model.seed}, {network}"
+    if config.n_fakes:
+        label += f", disinformation ratio {config.disinfo_ratio}"
+    return label
 
 
 def price_chart(model: MarketModel, title: str | None = None) -> Figure:
@@ -109,12 +124,7 @@ def price_chart(model: MarketModel, title: str | None = None) -> Figure:
         columnspacing=1.6,
     )
 
-    config = model.config
-    market = "AMM (LMSR)" if not clob else "Kalshi" if config.taker_fee_bp else "CLOB, no fees"
-    default = f"{market}, seed {model.seed}, {config.network} network"
-    if config.n_fakes:
-        default += f", disinformation ratio {config.disinfo_ratio}"
-    fig.suptitle(title or default, x=0.07, y=0.99, ha="left", color=INK, fontsize=12)
+    fig.suptitle(title or run_label(model), x=0.07, y=0.99, ha="left", color=INK, fontsize=12)
     fig.subplots_adjust(left=0.09, right=0.88, top=0.87, bottom=0.07)
     return fig
 
@@ -200,6 +210,9 @@ def _volume_panel(ax, df, steps: np.ndarray) -> None:
     totals = np.add.reduceat(volume, np.arange(0, len(volume), VOLUME_BIN))
     starts = 1 + VOLUME_BIN * np.arange(n_bins)
     ax.bar(starts, totals, width=VOLUME_BIN * 0.85, align="edge", color=PRICE, linewidth=0)
+    # Contract counts: start at 0 and use whole numbers, even when nothing traded.
+    ax.set_ylim(0, max(1, int(totals.max())) * 1.05)
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=4, integer=True))
     ax.set_ylabel(f"volume\n(per {VOLUME_BIN} steps)", color=INK)
 
 

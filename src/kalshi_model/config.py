@@ -58,7 +58,7 @@ class Config:
     mm_cash: int = 1_000_000
     """Market maker's starting cash, in cents."""
     mm_size: int = 10
-    """Contracts quoted on each side."""
+    """Contracts quoted on each side; 0 turns the market maker off."""
     mm_half_spread: float = 2.47
     """Base half-spread, in cents."""
     mm_max_half_spread: float = 10.0
@@ -76,6 +76,7 @@ class Config:
     # World (PLAN.md Section 2.4): M clues, each pointing to the truth with probability
     # q. The first K are the private pool; the other M - K are released as news.
     n_clues_total: int = 80
+    """M; 0 gives a world with no information at all (P* stays at 50%)."""
     n_private: int = 60
     clue_accuracy: float = 0.53
     n_news_seeds: int = 5
@@ -182,18 +183,18 @@ class Config:
                 raise ValueError(f"{f.name} must be a number, got {value!r}")
 
         positive = (
-            "n_agents n_steps turns_per_step n_clues_total lmsr_b n_clues_mean "
+            "n_agents n_steps turns_per_step lmsr_b n_clues_mean "
             "n_clues_dispersion market_trust_shape market_trust_scale depth_alpha "
             "depth_beta kelly_alpha kelly_beta g_alpha g_beta cash_median spread_cap "
-            "stale_ticks stale_steps mm_size mm_half_spread mm_max_half_spread mm_alpha "
+            "stale_ticks stale_steps mm_half_spread mm_max_half_spread mm_alpha "
             "mm_max_inventory manip_cash_share manip_start manip_chunk pump_push "
             "pump_max_steps spoof_size spoof_ticks spoof_qty spoof_steps"
         )
         non_negative = (
-            "taker_fee_bp maker_fee_bp n_private n_news_seeds hearsay_gamma hearsay_sigma "
-            "noise_scale noise_delta min_edge_scale patience_delta patience_sigma cash_sigma "
-            "activity_sigma depth_window mm_cash mm_skew mm_widen mm_decay manip_n_clues "
-            "pump_hold"
+            "taker_fee_bp maker_fee_bp n_clues_total n_private n_news_seeds hearsay_gamma "
+            "hearsay_sigma noise_scale noise_delta min_edge_scale patience_delta "
+            "patience_sigma cash_sigma activity_sigma depth_window mm_cash mm_size mm_skew "
+            "mm_widen mm_decay manip_n_clues pump_hold"
         )
         for name in positive.split():
             if not getattr(self, name) > 0:
@@ -244,7 +245,7 @@ class Config:
             raise ValueError("the manipulator trades only in the order book (mechanism 'clob')")
         if self.manipulator != "none" and self.manip_start > self.n_steps:
             raise ValueError("manip_start cannot be after the last step")
-        if self.manip_n_clues > self.n_private:
+        if self.manipulator != "none" and self.manip_n_clues > self.n_private:
             raise ValueError("manip_n_clues cannot exceed n_private")
         if self.manip_cash_share >= 1:
             raise ValueError("manip_cash_share must be below 1")

@@ -1,0 +1,19 @@
+# Two agents, no information, no market maker: the simplest order-book market.
+# Nobody holds a clue, so P* stays at 50% and any trade comes from belief noise.
+# Run: uv run python experiments/plot_run.py --config configs/two_agents_no_info.toml
+market = "kalshi"         # "kalshi", "clob" (no fees), or "amm"
+
+n_agents = 2
+turns_per_step = 2        # both agents act every step
+n_steps = 500
+
+n_clues_total = 0         # no clues at all: no private clues and no news
+n_private = 0
+n_news_seeds = 0
+mean_degree = 0           # no network
+
+mm_size = 0               # market maker off: agents only trade with each other
+
+[traits]
+cash = 100_000            # $1,000 each
+activity = 1.0
