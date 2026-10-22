@@ -191,10 +191,13 @@ def _price_panel(ax, model: MarketModel, df, steps: np.ndarray) -> None:
     ax.set_ylabel("cents", color=INK)
 
     final = 100 * model.price
+    p_star = 100 * model.p_star
     outcome = "YES" if model.world.y else "NO"
+    # No final price when one side of the book is empty and nothing ever traded.
+    price_text = "n/a" if np.isnan(final) else f"{final:.1f}c"
     ax.annotate(
-        f"resolved {outcome}\nfinal price {final:.1f}c\nfinal P* {100 * model.p_star:.1f}c",
-        xy=(steps[-1], final),
+        f"resolved {outcome}\nfinal price {price_text}\nfinal P* {p_star:.1f}c",
+        xy=(steps[-1], p_star if np.isnan(final) else final),
         xytext=(10, 0),
         textcoords="offset points",
         va="center",

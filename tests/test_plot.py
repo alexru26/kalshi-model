@@ -7,6 +7,7 @@ import pytest
 from matplotlib.collections import PathCollection
 
 from kalshi_model.config import Config, amm_config
+from kalshi_model.custom import load_custom
 from kalshi_model.model import MarketModel
 from kalshi_model.plot import clue_events, price_chart
 
@@ -112,6 +113,18 @@ def test_the_outcome_is_labeled(kalshi_with_fakes):
     texts = [t.get_text() for t in price_chart(model).axes[0].texts]
     outcome = "YES" if model.world.y else "NO"
     assert any(f"resolved {outcome}" in t and f"{100 * model.price:.1f}c" in t for t in texts)
+
+
+def test_a_run_with_no_final_price_still_gets_its_end_labels():
+    # On this seed one side of the book stays empty and nothing ever trades.
+    path = Path(__file__).resolve().parents[1] / "configs" / "informed_vs_uninformed.toml"
+    custom = load_custom(path)
+    model = MarketModel(custom.config, 20000, fixed_traits=custom.fixed_traits)
+    model.run()
+    assert np.isnan(model.price)
+    (label,) = price_chart(model).axes[0].texts
+    assert "final price n/a" in label.get_text()
+    assert np.isfinite(label.xy[1])
 
 
 def test_unsettled_run_is_rejected():
