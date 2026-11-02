@@ -8,8 +8,14 @@ link scales each agent's drawn noise, so it uses no extra draws. The cash
 link reassigns the drawn cash amounts among agents (a Gaussian copula with correlation
 `cash_rho`), so the cash distribution itself does not change, and it draws from a
 separate child stream spawned after the traits' own, so every other trait is unchanged.
+
+`fixed` pins chosen traits to exact values (custom configurations, `kalshi_model.custom`).
+Every trait is still drawn, so pinning one never changes another's draws, but a pinned
+`n_clues` feeds the four links, and a pinned trait replaces the linked value.
 """
 
+import math
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, fields
 from statistics import NormalDist
 
@@ -71,14 +77,64 @@ class Traits:
         return len(self.n_clues)
 
 
-def draw_traits(config: Config, rng: np.random.Generator) -> Traits:
-    """Draw the trait vector of every agent from the config's distributions."""
+# Allowed values of each trait when pinned: (low, high, low_inclusive, integer). The
+# upper bound is inclusive.
+TRAIT_RANGES: dict[str, tuple[float, float, bool, bool]] = {
+    "n_clues": (0, math.inf, True, True),
+    "w_hearsay": (0, 1, True, False),
+    "market_trust": (0, math.inf, True, False),
+    "w_depth": (0, 1, True, False),
+    "noise": (0, math.inf, True, False),
+    "min_edge": (0, math.inf, True, False),
+    "patience": (0, 1, True, False),
+    "kelly_frac": (0, 1, True, False),
+    "g": (0, 1, False, False),
+    "cash": (1, math.inf, True, True),
+    "activity": (0, math.inf, False, False),
+}
+
+
+def fixed_values(name: str, value: object, n_agents: int) -> np.ndarray:
+    """Check a pinned trait and expand it to one value per agent.
+
+    `value` is one number for every agent or a sequence with one number per agent.
+    Raises ValueError for an unknown trait, a wrong length, or a value out of range.
+    """
+    if name not in TRAIT_RANGES:
+        raise ValueError(f"unknown trait {name!r}; traits are {', '.join(TRAIT_NAMES)}")
+    low, high, low_inclusive, integer = TRAIT_RANGES[name]
+    values = list(value) if isinstance(value, Sequence) and not isinstance(value, str) else None
+    if values is None:
+        values = [value] * n_agents
+    elif len(values) != n_agents:
+        raise ValueError(f"trait {name!r} has {len(values)} values for {n_agents} agents")
+    for v in values:
+        is_number = isinstance(v, int | float) and not isinstance(v, bool)
+        if not is_number or (integer and not isinstance(v, int)):
+            kind = "an integer" if integer else "a number"
+            raise ValueError(f"trait {name!r} must be {kind}, got {v!r}")
+        if not (low <= v if low_inclusive else low < v) or not v <= high:
+            raise ValueError(f"trait {name!r} is out of range: {v!r}")
+    return np.array(values, dtype=np.int64 if integer else np.float64)
+
+
+def draw_traits(
+    config: Config,
+    rng: np.random.Generator,
+    fixed: Mapping[str, object] | None = None,
+) -> Traits:
+    """Draw the trait vector of every agent from the config's distributions.
+
+    `fixed` maps trait names to pinned values (see `fixed_values`).
+    """
     n = config.n_agents
+    pins = {name: fixed_values(name, value, n) for name, value in (fixed or {}).items()}
     streams = dict(zip(TRAIT_NAMES, rng.spawn(len(TRAIT_NAMES)), strict=True))
 
     # Negative binomial with mean m and dispersion r: most agents know little, a few a lot.
     r = config.n_clues_dispersion
     n_clues = streams["n_clues"].negative_binomial(r, r / (r + config.n_clues_mean), n)
+    n_clues = pins.get("n_clues", n_clues)
 
     w_hearsay = _logit_normal(
         streams["w_hearsay"],
@@ -110,19 +166,20 @@ def draw_traits(config: Config, rng: np.random.Generator) -> Traits:
         cash = link_to_informedness(cash, n_clues, config.cash_rho, link)
     activity = streams["activity"].lognormal(0.0, config.activity_sigma, n)
 
-    return Traits(
-        n_clues=n_clues.astype(np.int64),
-        w_hearsay=w_hearsay,
-        market_trust=market_trust,
-        w_depth=w_depth,
-        noise=noise,
-        min_edge=min_edge,
-        patience=patience,
-        kelly_frac=kelly_frac,
-        g=g,
-        cash=cash,
-        activity=activity,
-    )
+    drawn = {
+        "n_clues": n_clues.astype(np.int64),
+        "w_hearsay": w_hearsay,
+        "market_trust": market_trust,
+        "w_depth": w_depth,
+        "noise": noise,
+        "min_edge": min_edge,
+        "patience": patience,
+        "kelly_frac": kelly_frac,
+        "g": g,
+        "cash": cash,
+        "activity": activity,
+    }
+    return Traits(**(drawn | pins))
 
 
 def link_to_informedness(

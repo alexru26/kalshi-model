@@ -201,6 +201,8 @@ class Trader(mesa.Agent):
     def take_turn_amm(self, lmsr: LMSR, z: float) -> int:
         """Trade with the LMSR toward the Kelly target; return contracts bought (sold < 0).
 
+        Legacy: the AMM is no longer used by any experiment.
+
         The agent buys YES while its perceived probability beats the price by more than
         `min_edge`, stopping at its Kelly target or once its trades push the price to
         `p_yes - min_edge`; it sells YES (buys NO) in the mirror case. Inside the
@@ -371,7 +373,7 @@ class Trader(mesa.Agent):
         return sum(f.qty for f in fills)
 
     def settle(self, y: bool) -> None:
-        """AMM settlement: receive 100c per YES held if YES wins (pay it per YES short).
+        """AMM settlement (legacy): receive 100c per YES held if YES wins (pay it per YES short).
 
         In a CLOB run the order book settles the agent's account instead.
         """

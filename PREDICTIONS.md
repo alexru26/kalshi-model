@@ -4,16 +4,18 @@ Written before the experiments ran, and committed before any results, so the out
 
 **What was known beforehand.** Earlier step checks showed the Kalshi book has a narrower median spread than the fee-free CLOB (1c vs 2.7c, Step 5), news reaches half the agents in about 22-26 steps in every network except Watts-Strogatz (about 42, Step 6), and on 10 seeds 1, 2, and 4 fakes moved the price about 0.4, 0.9, and 1.9c toward them (Step 6). A 6-seed probe (seeds 10000-10005) checked that the news-response metric is measurable in all three markets. For E3, a probe on 24 unused seeds (40000-40023) chose the spoofer's distance behind the best bid (2c rather than 1c, where large sellers filled the fake bid far more often) and checked the script: there the pump's premium at `P*` was about -$3,000 and the spoofer's about $0, and the price sat about 1.8c (pump) and 0.5c (spoof) above the twin's while the layer acted.
 
-## E1. Kalshi rules (AMM vs CLOB vs Kalshi)
+## E1. Kalshi rules (CLOB vs Kalshi)
+
+E1 originally also tested an AMM (LMSR). The AMM was later dropped from the experiment, so E1.6 below is kept only as a record and is not evaluated.
 
 - **E1.1 The fee slows the pricing of news, most near 50c.** Kalshi's mean price move toward a news clue over the 90 steps after its release is smaller than the CLOB's, and its news half-life is longer. The shortfall is larger for news that arrives while the price is between 40c and 60c than for news that arrives outside that range, because the fee per contract is largest at 50c.
 - **E1.2 Fees cut volume much more than accuracy.** The percentage fall in total volume from the CLOB to Kalshi is more than twice the percentage change in mean aggregation error `|price - P*|`.
 - **E1.3 Free maker orders draw agents into making.** The share of traded contracts whose maker (the resting order) is an agent rather than the market maker is higher in Kalshi than in the CLOB.
 - **E1.4 Makers out-earn takers on Kalshi** (as Burgi et al. 2025 find on real Kalshi data). Agents' maker fills earn more per contract than their taker fills after fees, and taker fills lose money on average.
 - **E1.5 The fee falls hardest on the uninformed.** On Kalshi, agents with no private clues pay more fee per contract traded than the best-informed tenth, since patience rises with informedness and patient agents post free maker orders.
-- **E1.6 The AMM prices news fastest.** The LMSR always quotes and every trade moves its price, so the AMM's news half-life is shorter than the CLOB's. The LMSR loses money on average (its subsidy, at most `b ln 2`, $34.66 per run).
+- ~~**E1.6 The AMM prices news fastest.** The LMSR always quotes and every trade moves its price, so the AMM's news half-life is shorter than the CLOB's. The LMSR loses money on average (its subsidy, at most `b ln 2`, $34.66 per run).~~ *Dropped with the AMM.*
 
-Reported without a prediction: aggregation error and final Brier score across the three markets, spread, depth, and empty-book and no-trade steps.
+Reported without a prediction: aggregation error and final Brier score in both markets, spread, depth, and empty-book and no-trade steps.
 
 ## E2. Information spread
 

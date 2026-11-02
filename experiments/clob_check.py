@@ -1,4 +1,5 @@
-"""Step 5 check: solvency and empty-book steps in the three E1 markets.
+"""Step 5 check: solvency and empty-book steps in the E1 markets (CLOB and Kalshi), plus
+the legacy AMM.
 
 Runs each market on the same seeds with the conservation invariants checked every step,
 then reports means across seeds.
@@ -47,7 +48,7 @@ def main(n_seeds: int) -> None:
     seeds = range(n_seeds)
     check("Kalshi (CLOB + fees)", Config(), seeds)
     check("CLOB (no fees)", clob_config(), seeds)
-    check("AMM (LMSR)", amm_config(), seeds)
+    check("AMM (LMSR)", amm_config(), seeds)  # legacy: the AMM is no longer in E1
 
 
 if __name__ == "__main__":

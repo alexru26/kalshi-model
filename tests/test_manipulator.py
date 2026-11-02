@@ -58,7 +58,7 @@ def fills_on(model: MarketModel, steps: set[int]):
         {"manipulator": "pump", "mechanism": "amm", "taker_fee_bp": 0},
         {"manipulator": "spoof", "spoof_ticks": 3},  # outside the 2c depth window
         {"manipulator": "twin", "manip_start": 2001},
-        {"manip_n_clues": 61},
+        {"manipulator": "twin", "manip_n_clues": 61},
         {"manip_cash_share": 1.0},
         {"pump_push": 0},
     ],

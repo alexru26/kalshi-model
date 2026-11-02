@@ -1,0 +1,21 @@
+n_agents = 2
+n_steps = 500
+turns_per_step = 2            # both agents act every step
+
+n_clues_total = 10
+n_private = 10
+clue_accuracy = 0.6           # q: chance each clue points to the truth
+n_news_seeds = 0
+mean_degree = 0               # no network
+
+[traits]
+n_clues = 5                   # private clues held
+market_trust = 5.0            # how many clues the agent thinks the price is worth
+w_depth = 0.0                 # ignore book imbalance
+noise = 0.00                  # belief noise per turn (log-odds)
+min_edge = 2.0                # smallest edge worth acting on (cents)
+patience = 0.75               # chance of posting a resting order instead of waiting
+kelly_frac = 0.5              # fraction of the Kelly bet placed
+g = 0.8                       # probability weighting (1 = none)
+cash = 100_000                # starting cash in cents
+activity = 1.0                # equal chance of a turn

@@ -5,6 +5,9 @@ when agents hold YES on balance). Its cost function is `C(n) = b ln(1 + e^(n / b
 two-outcome LMSR with q_yes - q_no = n, so the YES price is `sigmoid(n / b)`. Contracts
 pay 100c, so costs in cents are `100 x (C(n') - C(n))`. Money moves in integer cents,
 rounded in the maker's favor, so its loss stays within `100 b ln 2` cents.
+
+Legacy feature: the AMM is no longer part of any experiment (E1 now compares only the
+CLOB and Kalshi). It is kept working and tested for exploration (`market = "amm"`).
 """
 
 import math

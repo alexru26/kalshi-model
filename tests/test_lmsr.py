@@ -1,3 +1,5 @@
+"""Tests for the LMSR, the legacy AMM (no longer in any experiment, kept working)."""
+
 import itertools
 import math
 

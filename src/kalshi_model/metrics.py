@@ -3,7 +3,7 @@
 `run_metrics` turns one finished run into a flat dict of numbers: one row of
 `results/*.csv`, since each run is one data point. Prices and gaps are in cents and
 P&L in dollars. Metrics that a market does not have (fees and maker fills under the
-AMM, for example) are NaN.
+legacy AMM, for example) are NaN.
 
 News response: for each real news clue whose 300-step window fits in the run, the
 price move toward the clue (up for a YES clue, down for a NO clue) from the step
@@ -216,7 +216,7 @@ def fill_values(model: MarketModel, payout: float | None = None) -> dict[str, np
 
 
 def _market(model: MarketModel, df) -> dict[str, float]:
-    if model.lmsr is not None:
+    if model.lmsr is not None:  # legacy AMM, unused by the experiments
         nan = math.nan
         return {
             "maker_pnl": (model.lmsr.cash - subsidy_cents(model.config.lmsr_b)) / 100,

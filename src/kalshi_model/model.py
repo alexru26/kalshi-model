@@ -4,7 +4,8 @@ Each step releases scheduled news and fake clues to seed agents, spreads clues o
 along the social network, lets the CLOB's market maker requote, then gives an
 activity-weighted sample of agents a turn, then records the step. In E3 the manipulator
 (or its honest twin) also takes a turn every step, in a random slot among the agents'.
-After the last step the market settles. Under the AMM agents trade with the LMSR; under
+After the last step the market settles. Under the AMM (a legacy feature, unused by the
+experiments) agents trade with the LMSR; under
 the CLOB they trade in the order book, whose accounts hold every trader's cash and
 position. Every random part draws from its own stream (see `rng.py`), and the turn
 order, belief noise, and news seeds use the same number of draws in every
@@ -15,6 +16,7 @@ the market rules and whether or not a manipulator is present.
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 
 import mesa
 import numpy as np
@@ -99,7 +101,8 @@ class InvariantError(AssertionError):
 class MarketModel(mesa.Model):
     """One prediction market run.
 
-    `traits` replaces the drawn population (for limit-case tests). With `debug`, the
+    `traits` replaces the drawn population (for limit-case tests); `fixed_traits` instead
+    pins chosen traits while the rest are drawn (`traits.draw_traits`). With `debug`, the
     conservation invariants are checked after every step.
     """
 
@@ -109,8 +112,11 @@ class MarketModel(mesa.Model):
         seed: int = 0,
         *,
         traits: Traits | None = None,
+        fixed_traits: Mapping[str, object] | None = None,
         debug: bool = False,
     ) -> None:
+        if traits is not None and fixed_traits:
+            raise ValueError("pass either traits or fixed_traits, not both")
         super().__init__(rng=seed)
         self.config = config = config or Config()
         self.seed = seed
@@ -127,7 +133,9 @@ class MarketModel(mesa.Model):
         self._disinfo_rng = streams["disinformation"]
 
         self.world = make_world(config, streams["world"])
-        self.traits = traits if traits is not None else draw_traits(config, streams["traits"])
+        if traits is None:
+            traits = draw_traits(config, streams["traits"], fixed_traits)
+        self.traits = traits
         if len(self.traits) != config.n_agents:
             raise ValueError("traits must have one entry per agent (config.n_agents)")
 
@@ -135,7 +143,7 @@ class MarketModel(mesa.Model):
         self.lmsr: LMSR | None = None
         self.book: OrderBook | None = None
         self.market_maker: MarketMaker | None = None
-        if config.mechanism == "amm":
+        if config.mechanism == "amm":  # legacy: the AMM is unused by the experiments
             self.lmsr = LMSR(config.lmsr_b)
         else:
             self.book = OrderBook(config.taker_fee_bp, config.maker_fee_bp)
@@ -227,7 +235,7 @@ class MarketModel(mesa.Model):
         noise = self._decisions_rng.standard_normal(n_turns).tolist()
         patience_draws = self._patience_rng.random(n_turns).tolist()
         self.volume = 0
-        if self.lmsr is not None:
+        if self.lmsr is not None:  # legacy AMM path
             for index, z in zip(order.tolist(), noise, strict=True):
                 self.volume += abs(self.traders[index].take_turn_amm(self.lmsr, z))
                 self.traders[index].finish_turn()
@@ -338,7 +346,7 @@ class MarketModel(mesa.Model):
         if self.manipulator is not None:
             self.manipulator.closing_position = self.manipulator.position
         y = self.world.y
-        if self.lmsr is not None:
+        if self.lmsr is not None:  # legacy AMM path
             for trader in self.traders:
                 trader.settle(y)
             self.lmsr.settle(y)
@@ -366,6 +374,7 @@ class MarketModel(mesa.Model):
             if self._total_cash() != self._initial_total_cash:
                 raise InvariantError("cash + fees changed")
             return
+        # Legacy AMM invariants.
         positions = sum(t.position for t in self.traders)
         if positions != self.lmsr.net:
             raise InvariantError(f"agents hold {positions} YES but the LMSR sold {self.lmsr.net}")

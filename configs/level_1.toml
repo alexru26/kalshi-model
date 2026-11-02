@@ -1,0 +1,26 @@
+n_agents = 3
+n_steps = 500
+turns_per_step = 2            # agents drawn each step (<= n_agents)
+
+n_clues_total = 20
+n_private = 10
+clue_accuracy = 0.6           # q: chance each clue points to the truth
+n_news_seeds = 1              # each news clue starts with one agent, then spreads
+
+# A triangle: a Watts-Strogatz ring of 3 with no rewiring.
+network = "watts_strogatz"
+mean_degree = 2
+ws_rewire = 0.0
+
+[traits]
+n_clues = 5                   # private clues held
+market_trust = 10.0           # how many clues the agent thinks the price is worth
+w_depth = 0.0                 # ignore book imbalance
+w_hearsay = 0.5               # weight given to heard clues
+noise = 0.00                  # belief noise per turn (log-odds)
+min_edge = 2.0                # smallest edge worth acting on (cents)
+patience = 0.75               # chance of posting a resting order instead of waiting
+kelly_frac = 0.5              # fraction of the Kelly bet placed
+g = 0.8                       # probability weighting (1 = none)
+cash = 100_000                # starting cash in cents
+activity = 1.0                # equal chance of a turn

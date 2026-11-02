@@ -1,5 +1,7 @@
 """Print one AMM run's price next to P*, to see how far the price moves toward the benchmark.
 
+Legacy: the AMM is no longer used by any experiment (E1 compares only the CLOB and Kalshi).
+
 Usage: uv run python experiments/example_run.py [seed]
 """
 

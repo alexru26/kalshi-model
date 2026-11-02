@@ -1,0 +1,20 @@
+# Test fixture: one agent knows every clue, the other knows nothing; no news, no market
+# maker. Does the uninformed agent's trading let the price reach P*?
+# Run: uv run python experiments/plot_run.py --config configs/test_1.toml
+
+n_agents = 2
+turns_per_step = 2
+n_steps = 500
+
+n_clues_total = 20        # 20 private clues, no news
+n_private = 20
+n_news_seeds = 0
+mean_degree = 0           # no network
+
+mm_size = 0               # market maker off
+
+[traits]
+n_clues = [20, 0]         # agent 0 holds all 20 private clues, agent 1 none
+noise = 0.0               # no belief noise
+cash = 100_000
+activity = 1.0
