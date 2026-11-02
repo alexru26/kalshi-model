@@ -2,8 +2,9 @@
 
 A file (examples in `configs/`) holds:
 
-- `market = "kalshi" | "clob" | "amm"`: one of the three E1 markets as the starting
-  point (default "kalshi"). The other defaults are the frozen `Config` defaults.
+- `market = "kalshi" | "clob" | "amm"`: the market preset to start from (default
+  "kalshi"). "kalshi" and "clob" are the two E1 markets; "amm" is a legacy feature no
+  longer used by any experiment. The other defaults are the frozen `Config` defaults.
 - Any `Config` field by name, such as `n_agents = 2`.
 - An optional `[traits]` table pinning agent traits: one value for every agent, or a
   list with one value per agent (`n_clues = [10, 0]`). Unpinned traits are drawn from
@@ -24,7 +25,8 @@ from kalshi_model.config import Config, amm_config, clob_config
 from kalshi_model.traits import fixed_values
 
 MARKETS = {"kalshi": Config, "clob": clob_config, "amm": amm_config}
-"""The E1 markets: Kalshi rules (the default), the fee-free CLOB, and the AMM."""
+"""Market presets: the E1 markets (Kalshi rules, the default, and the fee-free CLOB) and
+the legacy AMM."""
 
 CONFIG_FIELDS = frozenset(f.name for f in fields(Config))
 

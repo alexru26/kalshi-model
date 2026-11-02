@@ -117,7 +117,7 @@ def test_the_outcome_is_labeled(kalshi_with_fakes):
 
 def test_a_run_with_no_final_price_still_gets_its_end_labels():
     # On this seed one side of the book stays empty and nothing ever trades.
-    path = Path(__file__).resolve().parents[1] / "configs" / "informed_vs_uninformed.toml"
+    path = Path(__file__).resolve().parents[1] / "configs" / "test_1.toml"
     custom = load_custom(path)
     model = MarketModel(custom.config, 20000, fixed_traits=custom.fixed_traits)
     model.run()
@@ -143,5 +143,7 @@ def test_plot_script_writes_a_png(tmp_path):
         text=True,
         check=True,
     )
-    assert str(out) in done.stdout
-    assert out.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+    network = tmp_path / "run_network.png"
+    for path in (out, network):
+        assert str(path) in done.stdout
+        assert path.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"

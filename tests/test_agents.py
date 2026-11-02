@@ -114,7 +114,7 @@ def test_solvency_covers_both_outcomes():
     assert not solvent(-1, 3)
 
 
-# Trading with the LMSR
+# Trading with the LMSR (legacy AMM: no longer in any experiment, kept working)
 
 
 def one_trader(**traits):

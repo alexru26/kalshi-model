@@ -2,6 +2,8 @@
 
 import subprocess
 import sys
+import tomllib
+from dataclasses import fields
 from pathlib import Path
 
 import numpy as np
@@ -157,6 +159,16 @@ def test_manipulator_clues_only_checked_with_a_manipulator():
         Config(n_private=0, n_clues_total=0, manipulator="twin")
 
 
+def test_template_lists_every_setting_at_its_default():
+    path = ROOT / "configs" / "template.toml"
+    with path.open("rb") as f:
+        settings = set(tomllib.load(f)) - {"traits"}
+    assert settings == {f.name for f in fields(Config)}
+    custom = load_custom(path)
+    assert custom.config == Config()
+    assert custom.fixed_traits == {}
+
+
 @pytest.mark.parametrize("path", CONFIGS, ids=lambda p: p.stem)
 def test_every_example_config_runs_with_invariants(path):
     custom = load_custom(path, {"n_steps": 60})
@@ -173,7 +185,7 @@ def test_plot_script_runs_a_config_file(tmp_path):
             str(ROOT / "experiments" / "plot_run.py"),
             "2",
             "--config",
-            str(ROOT / "configs" / "informed_vs_uninformed.toml"),
+            str(ROOT / "configs" / "test_1.toml"),
             "--set",
             "n_steps=80",
             "--set",

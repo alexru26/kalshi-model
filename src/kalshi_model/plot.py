@@ -6,7 +6,7 @@ Panels share the step axis, and each has one y-scale:
    at each news or fake clue's release (up for a YES clue, down for a NO clue). The
    outcome, final price, and final P* are labeled at the right edge. The price is the
    scored price (`MarketModel.price`): the bid-ask midpoint when the spread is within
-   `spread_cap`, else the last trade; the LMSR price under the AMM.
+   `spread_cap`, else the last trade; the LMSR price under the legacy AMM.
 2. Contracts traded per bin of steps.
 3. Order book only: the bid-ask spread (best ask minus best bid) in cents, with steps
    where one side of the book is empty marked along the bottom.
@@ -64,7 +64,7 @@ def clue_events(model: MarketModel) -> list[ClueEvent]:
 def run_label(model: MarketModel) -> str:
     """The market, seed, network, and disinformation ratio of a run, for chart titles."""
     config = model.config
-    if model.book is None:
+    if model.book is None:  # legacy AMM
         market = "AMM (LMSR)"
     else:
         market = "Kalshi" if config.taker_fee_bp else "CLOB, no fees"
@@ -90,7 +90,7 @@ def price_chart(model: MarketModel, title: str | None = None) -> Figure:
         len(heights), 1, sharex=True, gridspec_kw={"height_ratios": heights, "hspace": 0.12}
     )
     for ax in axes:
-        _style(ax)
+        style_axes(ax)
         for e in clue_events(model):  # faint guides, shared by every panel
             ax.axvline(
                 e.step, color=FAKE if e.fake else NEWS, linewidth=0.6, alpha=0.25, gid="clue"
@@ -129,7 +129,7 @@ def price_chart(model: MarketModel, title: str | None = None) -> Figure:
     return fig
 
 
-def _style(ax) -> None:
+def style_axes(ax) -> None:
     ax.set_facecolor(SURFACE)
     ax.grid(axis="y", color=GRID, linewidth=0.8)
     ax.set_axisbelow(True)
@@ -143,7 +143,7 @@ def _style(ax) -> None:
 def _price_panel(ax, model: MarketModel, df, steps: np.ndarray) -> None:
     ax.axhline(50, color=MUTED, linewidth=0.8, linestyle=(0, (2, 3)), zorder=1)
     events = clue_events(model)
-    if model.book is None:
+    if model.book is None:  # legacy AMM
         label = "price (LMSR)"
     else:
         bid = df.best_bid.astype(float).to_numpy()

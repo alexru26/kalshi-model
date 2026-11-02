@@ -40,6 +40,6 @@ def fee_cents(contracts: int, price_cents: int, rate_bp: int) -> int:
     """Fee in cents for `contracts` at `price_cents`, at `rate_bp` basis points.
 
     The fee is charged on the whole quantity, not per contract, and rounded up to the
-    cent. A zero rate (the AMM, the fee-free CLOB, and Kalshi maker orders) costs nothing.
+    cent. A zero rate (the legacy AMM, the fee-free CLOB, and Kalshi maker orders) costs nothing.
     """
     return ceil_cents(exact_fee(contracts, price_cents, rate_bp))

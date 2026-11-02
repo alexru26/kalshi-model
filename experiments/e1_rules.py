@@ -1,4 +1,4 @@
-"""E1: Kalshi rules. AMM vs CLOB vs Kalshi on shared seeds (PLAN.md Section 1).
+"""E1: Kalshi rules. CLOB vs Kalshi on shared seeds (PLAN.md Section 1).
 
 Writes results/e1_rules.csv (one row per run) and .json (commit, seeds, configs), then
 prints each prediction in PREDICTIONS.md against the data. `summary` reprints from the
@@ -11,7 +11,7 @@ import sys
 
 import numpy as np
 
-from kalshi_model.config import Config, amm_config, clob_config
+from kalshi_model.config import Config, clob_config
 from kalshi_model.experiment import (
     SEEDS,
     bootstrap,
@@ -25,7 +25,7 @@ from kalshi_model.experiment import (
 from kalshi_model.metrics import NEWS_WINDOW, response_column
 
 NAME = "e1_rules"
-CONFIGS = {"amm": amm_config(), "clob": clob_config(), "kalshi": Config()}
+CONFIGS = {"clob": clob_config(), "kalshi": Config()}
 END = response_column(NEWS_WINDOW)
 
 
@@ -51,7 +51,7 @@ def per_config_table(results: dict) -> None:
         ("depth", "depth within 2c"),
         ("empty_share", "empty-book steps"),
         ("fees", "fees ($)"),
-        ("maker_pnl", "LMSR / market maker P&L ($)"),
+        ("maker_pnl", "market maker P&L ($)"),
         ("agent_liquidity_share", "contracts with agent maker"),
         ("pnl_none", "P&L, no clues ($/agent)"),
         ("pnl_top", "P&L, top tenth ($/agent)"),
@@ -133,19 +133,9 @@ def predictions(results: dict) -> None:
     gaps = [r["fee_per_contract_none"] - r["fee_per_contract_top"] for r in k]
     print(f"  none - top:   {fmt(*mean_ci(gaps))}")
 
-    print("\nE1.6 the AMM prices news fastest (AMM - CLOB)")
-    hl = bootstrap(results, ["clob", "amm"], lambda c, a: curve_half_life(a) - curve_half_life(c))
-    print(f"  half-life difference (steps): {fmt_boot(*hl)}")
-    print(f"  news move by lag {NEWS_WINDOW} (c):      {diff(END, 'clob', 'amm')}")
-    lmsr = [r["maker_pnl"] for r in results["amm"].values()]
-    print(f"  LMSR P&L ($):                 {fmt(*mean_ci(lmsr), 2)}")
-
-    print("\nReported: paired differences")
+    print("\nReported: paired differences (Kalshi - CLOB)")
     for metric in ("error", "brier", "aggregation_loss", "volume"):
-        print(
-            f"  {metric:18s} CLOB - AMM {diff(metric, 'amm', 'clob'):>20s}   "
-            f"Kalshi - CLOB {diff(metric, 'clob', 'kalshi'):>20s}"
-        )
+        print(f"  {metric:18s} {diff(metric, 'clob', 'kalshi'):>20s}")
 
 
 def main(argv: list[str]) -> None:

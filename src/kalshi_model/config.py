@@ -5,13 +5,13 @@ maker were calibrated in Step 7, and again in Step 8b, against real Kalshi patte
 (`experiments/calibrate.py`, `results/calibration.csv`) and are frozen for all
 experiments. `g` (set from lab
 estimates), informedness (set in Step 3), `w_hearsay` and `w_depth` (no data anchor), and
-the network, AMM, and order-upkeep settings are assumptions or starting guesses, and
+the network, legacy AMM, and order-upkeep settings are assumptions or starting guesses, and
 the manipulator's settings (E3) are the experimenter's choice.
 """
 
 from dataclasses import dataclass, fields
 
-MECHANISMS = ("amm", "clob")
+MECHANISMS = ("amm", "clob")  # "amm" is a legacy feature, unused by the experiments
 NETWORKS = ("erdos_renyi", "watts_strogatz", "barabasi_albert", "holme_kim", "sbm")
 MANIPULATORS = ("none", "twin", "pump", "spoof")
 
@@ -33,10 +33,12 @@ class Config:
     turns_per_step: int = 20
     """Agents drawn each step, without replacement, with chance weighted by `activity`."""
 
-    # Market rules. E1: "amm" with no fees; "clob" with no fees; "clob" with Kalshi fees.
+    # Market rules. E1: "clob" with no fees vs "clob" with Kalshi fees. "amm" (the LMSR, no
+    # fees) is a legacy feature, no longer used by any experiment.
     mechanism: str = "clob"
     lmsr_b: float = 50.0
-    """LMSR liquidity, in contracts: one contract moves a 50c price by 25 / b cents."""
+    """LMSR liquidity, in contracts: one contract moves a 50c price by 25 / b cents.
+    Legacy: used only by the AMM."""
 
     # Fee rates in basis points (700 = 0.07). Kalshi's default market charges takers
     # 0.07 and makers nothing. The AMM has no fees, so it requires both to be 0.
@@ -263,5 +265,8 @@ def clob_config(**overrides: object) -> Config:
 
 
 def amm_config(**overrides: object) -> Config:
-    """The E1 AMM market: the LMSR with no fees, other defaults unchanged."""
+    """The AMM market: the LMSR with no fees, other defaults unchanged.
+
+    Legacy feature: dropped from E1, which now compares only the CLOB and Kalshi.
+    """
     return Config(**{"mechanism": "amm", "taker_fee_bp": 0, "maker_fee_bp": 0, **overrides})
