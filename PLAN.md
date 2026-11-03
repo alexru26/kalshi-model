@@ -97,13 +97,13 @@ Every other trait is one value shared by all agents, since each works through it
 
 | Trait | Controls | Value |
 |---|---|---|
-| `w_hearsay` | weight on fakes heard from neighbors | 0.39 (no data anchor) |
-| `market_trust` | how many clues the agent thinks the price is worth | 35.3 |
+| `w_hearsay` | weight on fakes heard from neighbors | 0.4 (no data anchor) |
+| `market_trust` | how many clues the agent thinks the price is worth | 35 |
 | `w_depth` | log-odds nudge from book imbalance | 0.1 (no data anchor) |
-| `noise` | belief error per turn (log-odds) | 0.0506 |
-| `min_edge` | smallest edge (cents) worth acting on | 2.22c |
-| `patience` | chance of posting a resting order instead of waiting | 0.902 |
-| `kelly_frac` | fraction of the Kelly bet placed | 0.274 |
+| `noise` | belief error per turn (log-odds) | 0.05 |
+| `min_edge` | smallest edge (cents) worth acting on | 2c |
+| `patience` | chance of posting a resting order instead of waiting | 0.90 |
+| `kelly_frac` | fraction of the Kelly bet placed | 0.275 |
 | `g` | probability weighting (1 = none, below 1 = overweights longshots) | 0.8, from lab estimates (Tversky & Kahneman 1992; Gonzalez & Wu 1999) |
 
 The calibrated values (all but `w_hearsay`, `w_depth`, and `g`) come from the Step 8c calibration. Any trait can still be pinned per agent in a custom configuration.
