@@ -2,8 +2,6 @@
 
 import subprocess
 import sys
-import tomllib
-from dataclasses import fields
 from pathlib import Path
 
 import numpy as np
@@ -160,12 +158,8 @@ def test_manipulator_clues_only_checked_with_a_manipulator():
         Config(n_private=0, n_clues_total=0, manipulator="twin")
 
 
-def test_template_lists_every_setting_at_its_default():
-    path = ROOT / "configs" / "template.toml"
-    with path.open("rb") as f:
-        settings = set(tomllib.load(f)) - {"traits"}
-    assert settings == {f.name for f in fields(Config)}
-    custom = load_custom(path)
+def test_default_file_as_a_custom_configuration_is_the_default_run():
+    custom = load_custom(ROOT / "configs" / "default.toml")
     assert custom.config == Config()
     assert custom.fixed_traits == {}
 

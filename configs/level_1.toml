@@ -1,3 +1,8 @@
+# Level 1 (MODEL_OUTLINE.md Section 4): Level 0 plus a third trader, scheduled news, and
+# a triangle network that spreads it. Unlisted settings keep their defaults
+# (configs/default.toml).
+# Run: uv run python experiments/plot_run.py --config configs/level_1.toml
+
 n_agents = 3
 n_steps = 500
 turns_per_step = 2            # agents drawn each step (<= n_agents)
@@ -13,15 +18,16 @@ network = "watts_strogatz"
 mean_degree = 2
 ws_rewire = 0.0
 
-[traits]
-n_clues = 5                   # private clues held
+# Traits every agent shares.
 market_trust = 10.0           # how many clues the agent thinks the price is worth
 w_depth = 0.0                 # ignore book imbalance
-w_hearsay = 0.5               # weight given to heard clues
-noise = 0.00                  # belief noise per turn (log-odds)
+w_hearsay = 0.5               # weight given to heard fakes
+noise = 0.0                   # belief noise per turn (log-odds)
 min_edge = 2.0                # smallest edge worth acting on (cents)
 patience = 0.75               # chance of posting a resting order instead of waiting
 kelly_frac = 0.5              # fraction of the Kelly bet placed
 g = 0.8                       # probability weighting (1 = none)
+
+[traits]                      # traits otherwise drawn per agent, pinned here
+n_clues = 5                   # private clues held
 cash = 100_000                # starting cash in cents
-activity = 1.0                # equal chance of a turn

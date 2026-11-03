@@ -1,20 +1,22 @@
-# Template: every setting at its frozen default (src/kalshi_model/config.py).
-# Loaded unchanged, this is the Kalshi default run. Copy it, delete the lines you do not
-# need (a missing setting keeps its default), and edit the rest.
-# Run: uv run python experiments/plot_run.py --config configs/template.toml
+# The frozen defaults: every Config field (src/kalshi_model/config.py), one line each.
+# Config reads this file at import, so editing a value here changes the default for every
+# run, test, and experiment that does not set it. The model refuses to start if a setting
+# is missing, unknown, or invalid. Experiments save each run's full configuration.
 #
-# This template sets the market directly, through `mechanism` and the two fees, so it
-# has no `market = ...` line (the fields below would override that preset anyway).
+# Custom configurations (README, kalshi_model/custom.py) set only what differs from this
+# file; copying it is a good starting point. Its market is set directly, through
+# `mechanism` and the two fees:
 #   Kalshi:         mechanism = "clob", taker_fee_bp = 700, maker_fee_bp = 0
 #   CLOB, no fees:  mechanism = "clob", taker_fee_bp = 0,   maker_fee_bp = 0
 #   AMM (LMSR):     mechanism = "amm",  taker_fee_bp = 0,   maker_fee_bp = 0   (legacy, not in E1)
 # Money is in integer cents. Settings marked "calibrated" were tuned to Kalshi data
-# (PLAN.md Step 8c).
+# (PLAN.md Step 8c); changing them leaves the calibrated region.
+# Run: uv run python experiments/plot_run.py --config configs/default.toml
 
 # --- Run size --------------------------------------------------------------------------
 n_agents = 300
 n_steps = 2000
-turns_per_step = 20           # agents drawn each step, weighted by activity (<= n_agents)
+turns_per_step = 20           # agents drawn each step, equal chances unless activity is pinned
 
 # --- Market rules ----------------------------------------------------------------------
 mechanism = "clob"            # "clob" (order book) or "amm" (LMSR, legacy)
@@ -83,12 +85,12 @@ patience = 0.902              # chance of posting a resting order instead of wai
 kelly_frac = 0.274            # fraction of the Kelly bet placed (calibrated)
 g = 0.8                       # probability weighting, 1 = none (from lab estimates)
 
-# --- Pinned traits ---------------------------------------------------------------------
-# Uncomment to fix a trait instead of drawing it: one value for every agent, or a list
-# with one value per agent (e.g. n_clues = [20, 0] for two agents). A pinned n_clues
-# still feeds the cash link unless cash is pinned too. Activity (equal for everyone
-# unless pinned) has no setting above.
-[traits]
+# --- Pinned traits (custom configurations only, not defaults) ------------------------
+# A custom configuration can pin traits in a [traits] table: one value for every agent,
+# or a list with one value per agent (e.g. n_clues = [20, 0] for two agents). A pinned
+# n_clues still feeds the cash link unless cash is pinned too. Activity (equal for
+# everyone unless pinned) has no setting above.
+# [traits]
 # n_clues = 0                 # private clues held (integer >= 0, capped at n_private)
 # w_hearsay = 0.5             # weight on fakes heard from neighbors, 0 to 1
 # market_trust = 50.0         # how many clues the agent thinks the price is worth, >= 0

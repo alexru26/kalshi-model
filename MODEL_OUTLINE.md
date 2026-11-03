@@ -171,7 +171,7 @@ Every other trait is one value shared by all traders:
 | `kelly_frac` | fraction of Kelly bet | 0.274 |
 | `g` | probability weighting | 0.8 (lab estimates) |
 
-Better-informed traders are richer. Uninformed traders are needed: without them the informed have nobody to trade with. The cash distribution, most single trait values, and the market maker settings are **calibrated** so the default model reproduces six real Kalshi patterns at once (trade sizes, spreads, rarely empty book, informed traders earn more, price calibration, price beats the average trader). Exact values are in `src/kalshi_model/config.py`.
+Better-informed traders are richer. Uninformed traders are needed: without them the informed have nobody to trade with. The cash distribution, most single trait values, and the market maker settings are **calibrated** so the default model reproduces six real Kalshi patterns at once (trade sizes, spreads, rarely empty book, informed traders earn more, price calibration, price beats the average trader). Exact values are in `configs/default.toml`.
 
 **Belief rule** gains two terms:
 ```

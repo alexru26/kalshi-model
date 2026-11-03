@@ -162,7 +162,7 @@ for t in 1..T:
 settle at 100c per winning contract; compute P&L for every agent
 ```
 
-Defaults: 300 agents, T = 2000 steps, 100 seeds per configuration (never fewer than 50). All parameters live in one `Config` dataclass (`src/kalshi_model/config.py`); results save the config they ran with.
+Defaults: 300 agents, T = 2000 steps, 100 seeds per configuration (never fewer than 50). All parameters live in one `Config` dataclass (`src/kalshi_model/config.py`), whose frozen defaults are read from `configs/default.toml`; results save the config they ran with.
 
 ---
 
@@ -198,7 +198,7 @@ Market mechanics (`fees.py`, `orderbook.py`, and `lmsr.py` for the legacy AMM) a
 4. **Order book, tests first** (done). Price-time priority, partial fills, free cancels that release reserved cash, YES/NO symmetry, no negative cash. **Conservation invariants**, asserted every step in debug mode and in tests: positions sum to 0; total cash + fees is constant, before and after settlement; every account can pay its worst case under both outcomes, with reserves matching its open orders. *Done when* tests pass, 50 runs show zero violations, and zero-intelligence traders in the order book reproduce Othman (2008) as a sanity check.
 5. **CLOB markets** (done). Market maker, agent cancel rules, Kalshi fees. *Done when* the market maker and agents stay solvent over T steps and empty-book steps are rare and reported (`experiments/clob_check.py`).
 6. **Information layer** (done; since narrowed to the Holme-Kim network). Network, spreading with trade-before-telling and stiflers, disinformation source. *Done when* at `beta = 1` with every agent trading each step, an agent at network distance d learns a clue exactly d steps after release (`experiments/information_check.py` reports spread speed and distortion).
-7. **Calibrate and freeze defaults** (done). The calibration at the end of Section 2.2, with targets fetched by `data/fetch_kalshi_patterns.py` and the frozen values checked on fresh seeds by `experiments/validate_defaults.py`. *Done when* the defaults are frozen in `Config`.
+7. **Calibrate and freeze defaults** (done). The calibration at the end of Section 2.2, with targets fetched by `data/fetch_kalshi_patterns.py` and the frozen values checked on fresh seeds by `experiments/validate_defaults.py`. *Done when* the defaults are frozen in `configs/default.toml`.
 8. **Run E1 and E2** (done). Predictions first, then `experiments/e1_rules.py` and `experiments/e2_information.py` write one row per run to `results/`. *Done when* every run passes the invariants and `RESULTS.md` reports each prediction against the data. E2 has since been narrowed to the Holme-Kim disinformation sweep, with ratio 0.5 added (`PREDICTIONS.md`, Amendments); it is rerun with the experiments' next full run.
 8b. **Fix price aggregation, then redo Steps 7 and 8** (done). Step 8 found the price compressed toward 50c: the final price moved about 0.2 logit units per unit of `P*`, so a 60c price meant about 88% YES, and E1 and E2 could not speak to accuracy. Causes and fixes, found on unused seeds:
     - Agents *averaged* their evidence with the price, so the price settled near an average of agents' evidence rather than its sum. Fix: the additive belief rule (Section 2.2).

@@ -1,8 +1,10 @@
-from dataclasses import FrozenInstanceError, asdict, replace
+import subprocess
+import sys
+from dataclasses import FrozenInstanceError, asdict, fields, replace
 
 import pytest
 
-from kalshi_model.config import Config, amm_config, clob_config
+from kalshi_model.config import DEFAULTS_FILE, Config, amm_config, clob_config, load_defaults
 
 
 def test_defaults_match_plan():
@@ -14,6 +16,47 @@ def test_defaults_match_plan():
     assert config.n_clues_total == 80
     assert config.n_private == 60
     assert config.clue_accuracy == 0.53
+
+
+def test_defaults_come_from_the_default_file():
+    data = load_defaults()
+    assert set(data) == {f.name for f in fields(Config)}
+    assert asdict(Config()) == data
+    assert DEFAULTS_FILE.name == "default.toml"
+
+
+def test_a_default_file_must_set_every_field_and_nothing_else(tmp_path):
+    text = DEFAULTS_FILE.read_text()
+    missing = tmp_path / "missing.toml"
+    missing.write_text(text.replace("n_steps = 2000", ""))
+    with pytest.raises(ValueError, match=r"missing setting.*n_steps"):
+        load_defaults(missing)
+    unknown = tmp_path / "unknown.toml"
+    unknown.write_text(text + "\nn_stepz = 5\n")
+    with pytest.raises(ValueError, match=r"unknown setting.*n_stepz"):
+        load_defaults(unknown)
+
+
+def test_an_invalid_default_stops_the_model_at_import(tmp_path):
+    # Run a copy of the package whose default file holds a bad value.
+    root = DEFAULTS_FILE.parents[1]
+    (tmp_path / "configs").mkdir()
+    (tmp_path / "configs" / "default.toml").write_text(
+        DEFAULTS_FILE.read_text().replace("n_agents = 300", "n_agents = 0")
+    )
+    package = tmp_path / "src" / "kalshi_model"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("")
+    (package / "config.py").write_text((root / "src" / "kalshi_model" / "config.py").read_text())
+    done = subprocess.run(
+        [sys.executable, "-c", "import kalshi_model.config"],
+        cwd=tmp_path / "src",  # the copy comes first on sys.path
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode != 0
+    assert "n_agents must be positive" in done.stderr
 
 
 def test_config_is_frozen():

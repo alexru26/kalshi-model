@@ -32,7 +32,7 @@ uv run python experiments/plot_run.py 20000 --disinfo 0.2           # with disin
 
 ### Custom configurations
 
-To explore small or simple systems, write a TOML file and pass it with `--config`. It may set `market` (`kalshi`, `clob`, or the legacy `amm`, which no experiment uses), any `Config` field (`src/kalshi_model/config.py`), and a `[traits]` table that pins agent traits to exact values, either one value for every agent or a list with one value per agent. Unpinned traits keep their defaults (informedness and cash drawn, the rest one value for all). `n_clues_total = 0` removes all information, `mean_degree = 0` removes the network, and `mm_size = 0` turns off the market maker. `configs/template.toml` lists every setting at its default, with a short note on each; copy it as a starting point. `configs/level_*.toml` are small demos of the model, and `configs/test_*.toml` are fixtures used by the tests:
+To explore small or simple systems, write a TOML file and pass it with `--config`. It may set `market` (`kalshi`, `clob`, or the legacy `amm`, which no experiment uses), any `Config` field, and a `[traits]` table that pins agent traits to exact values, either one value for every agent or a list with one value per agent. Unpinned traits keep their defaults (informedness and cash drawn, the rest one value for all). `n_clues_total = 0` removes all information, `mean_degree = 0` removes the network, and `mm_size = 0` turns off the market maker. `configs/default.toml` holds the frozen defaults: every setting, with a short note on each. `Config` reads it at import, so editing a value there changes the default everywhere (the model refuses to start if a setting is missing, unknown, or invalid). Copy it as a starting point for a custom configuration, which needs to list only what differs. `configs/level_*.toml` are small demos of the model, and `configs/test_*.toml` are fixtures used by the tests:
 
 ```sh
 uv run python experiments/plot_run.py --config configs/level_1.toml
@@ -43,6 +43,6 @@ uv run python experiments/plot_run.py --config configs/test_2.toml
 `--set key=value` overrides one setting on top of the file (or the defaults), and `traits.<name>` pins a trait:
 
 ```sh
-uv run python experiments/plot_run.py --config configs/level_1.toml --set traits.noise=0.5
+uv run python experiments/plot_run.py --config configs/level_1.toml --set noise=0.5
 uv run python experiments/plot_run.py --config configs/test_1.toml --set "traits.n_clues=[10, 10]"
 ```

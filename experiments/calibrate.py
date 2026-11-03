@@ -12,7 +12,7 @@ one best point (Grimm et al. 2005), so this is a rejection search:
    P&L swings with luck: they win big in worlds where their clues point the right way
    and lose big where the clues mislead.
 
-The most central candidate that passes the check is the one to freeze in `Config`; the
+The most central candidate that passes the check is the one to freeze in `configs/default.toml`; the
 spread-out ones that pass form the robustness ensemble. Everything is written to
 `results/calibration.csv` with the git commit.
 

@@ -16,6 +16,8 @@ Managed with `uv` (Python 3.12). CI (`.github/workflows/ci.yml`) runs the same c
 - `uv run pytest` - run the tests
 - `uv run ruff check` and `uv run ruff format --check` - lint and format check
 
+Frozen defaults live in `configs/default.toml`, which `Config` reads at import; change defaults there, not in `config.py`.
+
 ## Core principles
 
 - Every run has a known benchmark: `P*`, the exact Bayesian posterior from every real clue any agent holds (fakes excluded). Prices are scored against it.
