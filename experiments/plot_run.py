@@ -4,12 +4,12 @@ Writes two PNGs: the price chart (default `figures/price_<market or config>_seed
 and, beside it with `_network` added to the name, the agents' social network colored by
 each agent's P&L, with P&L against degree and private clues. The market is
 the Kalshi default unless `--market` picks the E1 fee-free CLOB or the legacy AMM; `--disinfo`
-and `--network` set the E2 variables. `--config` reads a custom configuration from a
+sets the E2 variable. `--config` reads a custom configuration from a
 TOML file (see `configs/` and `kalshi_model/custom.py`), and each `--set key=value`
 overrides one setting on top of it (`traits.<name>` pins a trait).
 
 Usage: uv run python experiments/plot_run.py [seed] [--market kalshi|clob|amm]
-       [--disinfo RATIO] [--network NAME] [--config FILE] [--set KEY=VALUE ...]
+       [--disinfo RATIO] [--config FILE] [--set KEY=VALUE ...]
        [--out PATH]
 """
 
@@ -29,7 +29,6 @@ def main(argv: list[str] | None = None) -> tuple[Path, Path]:
     parser.add_argument("seed", type=int, nargs="?", default=20000)
     parser.add_argument("--market", choices=MARKETS, default=None, help="default: kalshi")
     parser.add_argument("--disinfo", type=float, default=None, help="fake clues per true news clue")
-    parser.add_argument("--network", default=None, help="network type (default: Config's)")
     parser.add_argument("--config", type=Path, default=None, help="TOML custom configuration")
     parser.add_argument(
         "--set",
@@ -44,8 +43,6 @@ def main(argv: list[str] | None = None) -> tuple[Path, Path]:
     overrides: dict[str, object] = {}
     if args.disinfo is not None:
         overrides["disinfo_ratio"] = args.disinfo
-    if args.network is not None:
-        overrides["network"] = args.network
     try:
         overrides.update(parse_assignment(text) for text in args.set)
         if args.config is not None:

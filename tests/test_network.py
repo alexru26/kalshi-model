@@ -1,61 +1,51 @@
 from dataclasses import replace
+from pathlib import Path
 
 import networkx as nx
 import numpy as np
 import pytest
 
-from kalshi_model.config import NETWORKS, Config, amm_config
+from kalshi_model.config import Config, amm_config
+from kalshi_model.custom import load_custom
 from kalshi_model.model import MarketModel
 from kalshi_model.network import build_network, place_agents
 from kalshi_model.rng import make_streams
 
 
-def graph_for(network: str, seed: int = 0, **overrides) -> nx.Graph:
-    config = Config(network=network, **overrides)
-    return build_network(config, make_streams(seed)["network"])
+def graph_for(seed: int = 0, **overrides) -> nx.Graph:
+    return build_network(Config(**overrides), make_streams(seed)["network"])
 
 
 def mean_degree(graph: nx.Graph) -> float:
     return 2 * graph.number_of_edges() / graph.number_of_nodes()
 
 
-# Networks
+def clustering(seed: int, **overrides) -> float:
+    return nx.average_clustering(graph_for(seed, **overrides))
 
 
-@pytest.mark.parametrize("network", NETWORKS)
-def test_every_network_has_n_nodes_and_the_same_mean_degree(network):
-    degrees = [mean_degree(graph_for(network, seed)) for seed in range(5)]
-    assert all(graph_for(network, s).number_of_nodes() == 300 for s in range(2))
+# Network
+
+
+def test_network_has_n_nodes_and_the_configured_mean_degree():
+    degrees = [mean_degree(graph_for(seed)) for seed in range(5)]
+    assert all(graph_for(s).number_of_nodes() == 300 for s in range(2))
     assert np.mean(degrees) == pytest.approx(8, abs=0.4)
-    assert nx.number_of_selfloops(graph_for(network)) == 0
+    assert nx.number_of_selfloops(graph_for()) == 0
 
 
-@pytest.mark.parametrize("network", NETWORKS)
-def test_same_seed_gives_the_same_network(network):
-    assert nx.utils.graphs_equal(graph_for(network, 3), graph_for(network, 3))
-    assert not nx.utils.graphs_equal(graph_for(network, 3), graph_for(network, 4))
+def test_same_seed_gives_the_same_network():
+    assert nx.utils.graphs_equal(graph_for(3), graph_for(3))
+    assert not nx.utils.graphs_equal(graph_for(3), graph_for(4))
 
 
-def test_each_network_adds_its_property():
-    def clustering(name):
-        return np.mean([nx.average_clustering(graph_for(name, s)) for s in range(3)])
-
-    def max_degree(name):
-        return np.mean([max(d for _, d in graph_for(name, s).degree()) for s in range(3)])
-
-    # Hubs: preferential attachment gives far larger top degrees than random links.
-    assert max_degree("barabasi_albert") > 2 * max_degree("erdos_renyi")
-    assert max_degree("holme_kim") > 2 * max_degree("erdos_renyi")
-    # Clustering: friend circles and triad closure, not in the null model or plain BA.
-    assert clustering("watts_strogatz") > 5 * clustering("erdos_renyi")
-    assert clustering("holme_kim") > 2 * clustering("barabasi_albert")
-
-
-def test_sbm_has_two_communities_with_few_links_between():
-    graph = graph_for("sbm")
-    half = graph.number_of_nodes() // 2
-    cross = sum((u < half) != (v < half) for u, v in graph.edges())
-    assert cross / graph.number_of_edges() == pytest.approx(0.05, abs=0.03)
+def test_network_has_hubs_and_clustering():
+    # Hubs: preferential attachment gives top degrees far above the mean of 8.
+    assert np.mean([max(d for _, d in graph_for(s).degree()) for s in range(3)]) > 30
+    # Clustering comes from triad closure: turning it off removes most of it.
+    with_triads = np.mean([clustering(s) for s in range(3)])
+    without = np.mean([clustering(s, hk_triad=0.0) for s in range(3)])
+    assert with_triads > 2 * without
 
 
 def test_zero_degree_means_no_network():
@@ -63,14 +53,24 @@ def test_zero_degree_means_no_network():
     assert graph.number_of_nodes() == 300 and graph.number_of_edges() == 0
 
 
-@pytest.mark.parametrize("bad", [{"network": "grid"}, {"mean_degree": 7}, {"beta": 1.5}])
+def test_level_1_demo_is_a_triangle():
+    # The one non-Holme-Kim network: a Watts-Strogatz ring of 3, everyone linked.
+    custom = load_custom(Path(__file__).resolve().parents[1] / "configs" / "level_1.toml")
+    model = MarketModel(custom.config, 0, fixed_traits=custom.fixed_traits)
+    assert model.neighbors == [[1, 2], [0, 2], [0, 1]]
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [{"network": "sbm"}, {"mean_degree": 7}, {"hk_triad": 1.5}, {"ws_rewire": -0.1}, {"beta": 1.5}],
+)
 def test_invalid_network_settings_are_rejected(bad):
     with pytest.raises(ValueError):
         Config(**bad)
 
 
 def test_placement_maps_the_graph_onto_agents():
-    graph = graph_for("holme_kim")
+    graph = graph_for()
     neighbors = place_agents(graph, np.random.default_rng(1))
     # Symmetric, no self-links, and the same degree sequence as the graph.
     for agent, around in enumerate(neighbors):
@@ -108,12 +108,11 @@ def first_known_steps(model, clue_id):
     return first
 
 
-@pytest.mark.parametrize("network", NETWORKS)
-def test_at_beta_one_a_clue_reaches_everyone_within_the_network_diameter(network):
+def test_at_beta_one_a_clue_reaches_everyone_within_the_network_diameter():
     """Step 6 'done when': each agent learns the clue exactly d steps after release,
     where d is its distance from the seed, so everyone reachable knows it within the
     network's diameter."""
-    model = MarketModel(small_config(network=network, beta=1.0), 0, debug=True)
+    model = MarketModel(small_config(beta=1.0), 0, debug=True)
     first = first_known_steps(model, 60)
     release = model.release_step[60]
     [seed] = [agent for agent, step in first.items() if step == release]
@@ -187,7 +186,8 @@ def test_half_reach_step_is_recorded():
 
 
 def test_ratio_sets_the_number_of_fakes():
-    assert [Config(disinfo_ratio=r).n_fakes for r in (0, 0.05, 0.1, 0.2)] == [0, 1, 2, 4]
+    ratios = (0, 0.05, 0.1, 0.2, 0.5)
+    assert [Config(disinfo_ratio=r).n_fakes for r in ratios] == [0, 1, 2, 4, 10]
 
 
 def test_fakes_point_against_the_truth_and_are_kept_out_of_p_star():
@@ -215,9 +215,9 @@ def test_disinformation_leaves_real_news_and_p_star_unchanged_on_the_same_seed()
     assert a.equals(b)
 
 
-def test_network_choice_does_not_change_the_population_or_world():
-    a = MarketModel(Config(network="erdos_renyi"), 5)
-    b = MarketModel(Config(network="sbm"), 5)
+def test_network_settings_do_not_change_the_population_or_world():
+    a = MarketModel(Config(hk_triad=0.0), 5)
+    b = MarketModel(Config(mean_degree=4), 5)
     assert a.world.y == b.world.y
     assert np.array_equal(a.traits.cash, b.traits.cash)
     assert [t.known for t in a.traders] == [t.known for t in b.traders]

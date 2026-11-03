@@ -1,6 +1,6 @@
 # Project Plan: Kalshi as a Complex System
 
-**An agent-based model of one binary prediction market. It asks how Kalshi's trading rules, the social network that carries news and disinformation, and manipulators change how fast and how accurately the market price finds the truth.**
+**An agent-based model of one binary prediction market. It asks how Kalshi's trading rules, disinformation spreading on the social network that carries news, and manipulators change how fast and how accurately the market price finds the truth.**
 
 Python 3.12 + Mesa 3.x (an agent-based modeling library). Code is in `src/kalshi_model/`, experiment scripts in `experiments/`, per-run results in `results/`. Every cited source has a one-line summary in `SOURCES.md`. Predictions are in `PREDICTIONS.md` and results in `RESULTS.md`.
 
@@ -29,26 +29,25 @@ Python 3.12 + Mesa 3.x (an agent-based modeling library). Code is in `src/kalshi
 
 ### Research question and experiments
 
-**Headline question.** How do Kalshi's market rules, the structure of the network that spreads information, and manipulators change the speed and accuracy with which a prediction market absorbs information?
+**Headline question.** How do Kalshi's market rules, disinformation spreading through a social network, and manipulators change the speed and accuracy with which a prediction market absorbs information?
 
 **Benchmark.** Every run has a known best possible forecast, `P*`: the exact Bayesian probability of YES given every real clue held by any agent (Section 2.4). Prices are scored against it.
 
-**Design.** Each experiment changes one variable around a shared **default configuration**: Kalshi rules, Holme-Kim network, no disinformation, no manipulator (disinformation is off so E1 and E3 test clean markets). Every configuration runs on the same 100 seeds (20000-20099). Predictions are written in `PREDICTIONS.md` before running and are not edited afterwards.
+**Design.** Each experiment changes one variable around a shared **default configuration**: Kalshi rules, no disinformation, no manipulator, all on one Holme-Kim social network (disinformation is off so E1 and E3 test clean markets). Every configuration runs on the same 100 seeds (20000-20099). Predictions are written in `PREDICTIONS.md` before running and are not edited afterwards.
 
 **E1. Market rules (2 configurations):** CLOB (order book, no fees, free cancels) vs. Kalshi (CLOB + Kalshi fees). The only difference is the fee, so E1 isolates its effect.
 - *Predictions:* the fee creates a band around the price where no trade is worth its fee, widest at 50c, so prices near 50c react more slowly to small news; fees cut volume much more than accuracy; free maker orders push patient agents to post resting orders, and makers out-earn takers (as Burgi et al. 2025 find on real Kalshi data).
 
-**E2. Information spread (12 configurations):**
-- *Network sweep:* the 5 networks of Section 2.4, each at disinformation ratio 0.1 and at ratio 0 (so distortion is measured against the same network without fakes).
-- *Disinformation sweep:* ratios 0, 0.05, 0.1, 0.2 on Holme-Kim, i.e. 0, 1, 2, 4 fake clues added to the 20 real news clues. A real clue points the right way on net by `2q - 1 = 0.06` per clue and a fake points the wrong way by 1, so at ratio 0.06 the news stream carries no net signal: 0.05 sits just below that break-even, and 0.1 and 0.2 are stress tests.
-- *Predictions:* well-connected agents trade earlier and earn more (Ozsoylev et al. 2014); echo chambers (the block model) sustain the largest distortion; distortion grows faster than the ratio, because agents who follow the price amplify a rumor once it moves the price.
+**E2. Information spread (5 configurations):**
+- *Disinformation sweep:* ratios 0, 0.05, 0.1, 0.2, 0.5 on the Holme-Kim network, i.e. 0, 1, 2, 4, 10 fake clues added to the 20 real news clues. Distortion is measured against ratio 0 on the same seed. A real clue points the right way on net by `2q - 1 = 0.06` per clue and a fake points the wrong way by 1, so at ratio 0.06 the news stream carries no net signal: 0.05 sits just below that break-even, 0.1 and 0.2 are stress tests, and 0.5 shows how distortion scales far past it.
+- *Predictions:* well-connected agents trade earlier and earn more (Ozsoylev et al. 2014); distortion grows faster than the ratio, because agents who follow the price amplify a rumor once it moves the price.
 
 **E3. Manipulation (3 configurations):** Kalshi default with an honest manipulator twin vs. a pump-and-dump manipulator vs. a spoofing manipulator (Section 2.3).
 - *Predictions:* pump-and-dump moves the price but loses money, because informed agents trade against it (Hanson & Oprea 2009); spoofing can profit because its fake orders never fill, to the extent agents read book depth (Wang & Wellman 2017). Both distort less, and for less time, in more liquid runs (Rasooly & Rozzi 2025).
 
 **Validation.** Compare the simulated calibration curve with real Kalshi data, in particular the favorite-longshot bias (Section 3).
 
-**Out of scope** (future work in the report): factorial designs crossing experiment variables; a separate agent-behavior experiment; liar agents who trade on their own disinformation; herding rules; disinformation targeted at hubs; PredictIt-style or flat fee regimes; LLM agents; an automated market maker (AMM) baseline. The LMSR AMM (Hanson's logarithmic market scoring rule) was dropped from E1; its code remains as a legacy feature (`market = "amm"`), unused by the experiments.
+**Out of scope** (future work in the report): factorial designs crossing experiment variables; a separate agent-behavior experiment; liar agents who trade on their own disinformation; herding rules; comparing network types (random, small-world, scale-free, echo-chamber); disinformation targeted at hubs; PredictIt-style or flat fee regimes; LLM agents; an automated market maker (AMM) baseline. The LMSR AMM (Hanson's logarithmic market scoring rule) was dropped from E1; its code remains as a legacy feature (`market = "amm"`), unused by the experiments.
 
 ---
 
@@ -147,15 +146,7 @@ The manipulator is an agent with the trait vector, a fixed set of private clues,
 - **Seeding and spreading.** Each news clue is given to 5 random seed agents at release. Each step, an agent spreading a clue tells each neighbor with probability `beta = 0.5`. An agent starts relaying a new clue only after its next turn to trade (traders act on news before passing it on, van Bommel 2003). An agent stops retelling a clue once it tells someone who already knew it (a "stifler", Daley & Kendall 1964).
 - **Disinformation.** A non-trading source fabricates clues that point against the truth, `ratio x 20` of them, released at evenly spaced steps and seeded like news. Each clue spreads with its own random numbers, so on the same seed the real news spreads identically with and without fakes. Fakes are excluded from `P*`. Unlike random noise, disinformation is one-sided, so it does not cancel out (Wardle & Derakhshan 2017).
 - **How agents weigh what they hear.** Agents cannot tell a fake from news. But true news has a source that can be checked, so news counts in full however the agent learned it, while a fake heard from a neighbor counts only as hearsay, at the agent's weight `w_hearsay`. Each clue counts once however many neighbors relay it.
-- **Networks.** Mean degree 8 and `beta` are the same in all networks; how fast each spreads news is measured, not equalized.
-
-| Network | Hubs | Clustering | Communities | Represents |
-|---|---|---|---|---|
-| Erdos-Renyi | - | - | - | random baseline |
-| Watts-Strogatz | - | yes | - | friend circles plus a few long links |
-| Barabasi-Albert | yes | - | - | influencers |
-| Holme-Kim (default) | yes | yes | - | most realistic simple social network |
-| Stochastic block model | - | within groups | yes | echo chambers (2 groups, 5% of links between) |
+- **Network.** One Holme-Kim network (Holme & Kim 2002), mean degree 8, one agent per node. Preferential attachment gives it hubs (influencers), and closing a triangle with probability 0.5 after each link gives it clustering (friend circles), the two features real social networks share (Newman 2003; Ugander et al. 2011). Network structure is held fixed, not varied: comparing network types is out of scope. A Watts-Strogatz ring is kept only for small demos (the Level 1 triangle, `configs/level_1.toml`).
 
 ### 2.5 One run
 
@@ -171,7 +162,7 @@ for t in 1..T:
 settle at 100c per winning contract; compute P&L for every agent
 ```
 
-Defaults: 300 agents, T = 2000 steps, 100 seeds per configuration (never fewer than 50). All parameters live in one `Config` dataclass (`src/kalshi_model/config.py`); results save the config they ran with.
+Defaults: 300 agents, T = 2000 steps, 100 seeds per configuration (never fewer than 50). All parameters live in one `Config` dataclass (`src/kalshi_model/config.py`), whose frozen defaults are read from `configs/default.toml`; results save the config they ran with.
 
 ---
 
@@ -185,7 +176,7 @@ Defaults: 300 agents, T = 2000 steps, 100 seeds per configuration (never fewer t
 | Volume, spread, depth; no-trade and empty-book steps | Liquidity; did the market freeze? |
 | Fees paid, by informedness and maker/taker | Who bears the fee? |
 | P&L by `n_clues`, network position, and maker/taker | Who wins? |
-| Steps for a clue to reach half the agents (E2) | How fast does each network spread news? |
+| Steps for a clue to reach half the agents (E2) | How fast does the network spread news? |
 | Disinformation distortion: signed gap from `P*` in the fakes' direction, minus the same seed's gap without fakes (E2; even without fakes the price falls short of `P*` toward 50c, which is the fakes' side) | How far do lies move the price? |
 | Manipulation premium; distortion while the layer acts and over the 300 steps after; peak of the mean distortion curve and steps until it falls below half that peak; money taken from others (E3) | Does manipulation pay, and does it harm the market? |
 
@@ -206,9 +197,9 @@ Market mechanics (`fees.py`, `orderbook.py`, and `lmsr.py` for the legacy AMM) a
 3. **Agents and the AMM** (done; the AMM is now a legacy feature, dropped from E1). Traits, belief rule, Kelly targets, LMSR, Mesa model. *Done when* LMSR tests pass (price in (0,1), path independence, loss at most `b ln 2`); a fully informed population with `market_trust = 0` drives the price to `P*` (with trust above 0, agents who all know everything double count it through the price); on default runs the price beats always guessing 50c and informed agents out-earn uninformed ones.
 4. **Order book, tests first** (done). Price-time priority, partial fills, free cancels that release reserved cash, YES/NO symmetry, no negative cash. **Conservation invariants**, asserted every step in debug mode and in tests: positions sum to 0; total cash + fees is constant, before and after settlement; every account can pay its worst case under both outcomes, with reserves matching its open orders. *Done when* tests pass, 50 runs show zero violations, and zero-intelligence traders in the order book reproduce Othman (2008) as a sanity check.
 5. **CLOB markets** (done). Market maker, agent cancel rules, Kalshi fees. *Done when* the market maker and agents stay solvent over T steps and empty-book steps are rare and reported (`experiments/clob_check.py`).
-6. **Information layer** (done). Networks, spreading with trade-before-telling and stiflers, disinformation source. *Done when* at `beta = 1` with every agent trading each step, an agent at network distance d learns a clue exactly d steps after release (`experiments/information_check.py` reports spread speed and distortion).
-7. **Calibrate and freeze defaults** (done). The calibration at the end of Section 2.2, with targets fetched by `data/fetch_kalshi_patterns.py` and the frozen values checked on fresh seeds by `experiments/validate_defaults.py`. *Done when* the defaults are frozen in `Config`.
-8. **Run E1 and E2** (done). Predictions first, then `experiments/e1_rules.py` and `experiments/e2_information.py` write one row per run to `results/`. *Done when* every run passes the invariants and `RESULTS.md` reports each prediction against the data.
+6. **Information layer** (done; since narrowed to the Holme-Kim network). Network, spreading with trade-before-telling and stiflers, disinformation source. *Done when* at `beta = 1` with every agent trading each step, an agent at network distance d learns a clue exactly d steps after release (`experiments/information_check.py` reports spread speed and distortion).
+7. **Calibrate and freeze defaults** (done). The calibration at the end of Section 2.2, with targets fetched by `data/fetch_kalshi_patterns.py` and the frozen values checked on fresh seeds by `experiments/validate_defaults.py`. *Done when* the defaults are frozen in `configs/default.toml`.
+8. **Run E1 and E2** (done). Predictions first, then `experiments/e1_rules.py` and `experiments/e2_information.py` write one row per run to `results/`. *Done when* every run passes the invariants and `RESULTS.md` reports each prediction against the data. E2 has since been narrowed to the Holme-Kim disinformation sweep, with ratio 0.5 added (`PREDICTIONS.md`, Amendments); it is rerun with the experiments' next full run.
 8b. **Fix price aggregation, then redo Steps 7 and 8** (done). Step 8 found the price compressed toward 50c: the final price moved about 0.2 logit units per unit of `P*`, so a 60c price meant about 88% YES, and E1 and E2 could not speak to accuracy. Causes and fixes, found on unused seeds:
     - Agents *averaged* their evidence with the price, so the price settled near an average of agents' evidence rather than its sum. Fix: the additive belief rule (Section 2.2).
     - Cash was unrelated to information, so the price followed rich uninformed agents. Fix: the cash link (`cash_rho`).

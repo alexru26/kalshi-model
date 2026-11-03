@@ -4,7 +4,8 @@ A file (examples in `configs/`) holds:
 
 - `market = "kalshi" | "clob" | "amm"`: the market preset to start from (default
   "kalshi"). "kalshi" and "clob" are the two E1 markets; "amm" is a legacy feature no
-  longer used by any experiment. The other defaults are the frozen `Config` defaults.
+  longer used by any experiment. The other defaults are the frozen defaults of
+  `configs/default.toml`.
 - Any `Config` field by name, such as `n_agents = 2`.
 - An optional `[traits]` table pinning agent traits: one value for every agent, or a
   list with one value per agent (`n_clues = [10, 0]`). Unpinned traits are set from
@@ -78,7 +79,7 @@ def build_custom(
         raise ValueError(f"market must be one of {', '.join(MARKETS)}, got {market!r}")
     unknown = sorted(set(settings) - CONFIG_FIELDS)
     if unknown:
-        raise ValueError(f"unknown setting(s): {', '.join(unknown)} (see kalshi_model/config.py)")
+        raise ValueError(f"unknown setting(s): {', '.join(unknown)} (see configs/default.toml)")
 
     config = MARKETS[market](**settings)
     for name, value in traits.items():  # fail before the run, not during it

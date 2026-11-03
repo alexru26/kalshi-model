@@ -4,7 +4,7 @@ Project memory for agents working in this repository.
 
 ## Overview
 
-An agent-based model of one Kalshi binary prediction market. Three experiments: E1 Kalshi rules (CLOB vs Kalshi; the AMM is a legacy feature), E2 information spread (network type, disinformation ratio), E3 manipulation (pump-and-dump, spoofing), plus a favorite-longshot calibration check against public Kalshi data.
+An agent-based model of one Kalshi binary prediction market. Three experiments: E1 Kalshi rules (CLOB vs Kalshi; the AMM is a legacy feature), E2 information spread (disinformation ratio on one Holme-Kim network), E3 manipulation (pump-and-dump, spoofing), plus a favorite-longshot calibration check against public Kalshi data.
 
 `PLAN.md` is the source of truth for design, experiments, and build order (Section 4). Read it before writing code. Sources live in `SOURCES.md`. Code lives in the `src/kalshi_model/` package, tests in `tests/`.
 
@@ -15,6 +15,8 @@ Managed with `uv` (Python 3.12). CI (`.github/workflows/ci.yml`) runs the same c
 - `uv sync` - install the package and dev tools
 - `uv run pytest` - run the tests
 - `uv run ruff check` and `uv run ruff format --check` - lint and format check
+
+Frozen defaults live in `configs/default.toml`, which `Config` reads at import; change defaults there, not in `config.py`.
 
 ## Core principles
 

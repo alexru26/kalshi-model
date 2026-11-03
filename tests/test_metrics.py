@@ -129,8 +129,11 @@ def test_unfinished_run_is_rejected():
 
 
 def test_degree_quarters_are_disjoint_quarters_when_degrees_tie():
-    model = MarketModel(Config(network="watts_strogatz", ws_rewire=0.0), 0)
-    assert len({len(n) for n in model.neighbors}) == 1
+    # With one link per new agent the network is a tree, and two thirds of agents are
+    # leaves of degree 1, so ties span the whole bottom quarter.
+    model = MarketModel(Config(mean_degree=2), 0)
+    degree = np.array([len(n) for n in model.neighbors])
+    assert np.mean(degree == 1) > 0.5
     top, bottom = degree_quarters(model)
     quarter = model.config.n_agents // 4
     assert len(top) == len(set(top)) == quarter
@@ -139,7 +142,7 @@ def test_degree_quarters_are_disjoint_quarters_when_degrees_tie():
 
 
 def test_degree_quarters_rank_agents_by_degree():
-    model = MarketModel(Config(network="barabasi_albert"), 0)
+    model = MarketModel(Config(), 0)
     degree = np.array([len(n) for n in model.neighbors])
     top, bottom = degree_quarters(model)
     assert degree[top].min() >= degree[bottom].max()

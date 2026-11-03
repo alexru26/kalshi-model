@@ -1,20 +1,44 @@
 """The single configuration object for a model run.
 
-Every parameter lives here (PLAN.md Section 4). The trait settings and the market maker
-were calibrated in Steps 7, 8b, and 8c against real Kalshi patterns
-(`experiments/calibrate.py`, `results/calibration.csv`) and are frozen for all
-experiments. Since Step 8c only informedness and cash vary across agents; each other
-trait is one population value. `g` (set from lab estimates), informedness (set in Step
-3), `w_hearsay` and `w_depth` (no data anchor), and the network, legacy AMM, and
-order-upkeep settings are assumptions or starting guesses, and the manipulator's
-settings (E3) are the experimenter's choice.
+Every parameter is a field of `Config` (PLAN.md Section 4), and every field's frozen
+default lives in `configs/default.toml`, read once at import. Edit that file to change a
+default; the experiments save each run's full configuration with its results. The
+trait settings and the market maker were calibrated in Steps 7, 8b, and 8c against real
+Kalshi patterns (`experiments/calibrate.py`, `results/calibration.csv`). Since Step 8c
+only informedness and cash vary across agents; each other trait is one population
+value. `g` (set from lab estimates), informedness (set in Step 3), `w_hearsay` and
+`w_depth` (no data anchor), and the network, legacy AMM, and order-upkeep settings are
+assumptions or starting guesses, and the manipulator's settings (E3) are the
+experimenter's choice.
 """
 
+import tomllib
 from dataclasses import dataclass, fields
+from pathlib import Path
 
+NETWORKS = ("holme_kim", "watts_strogatz")  # "watts_strogatz" only for small demos
 MECHANISMS = ("amm", "clob")  # "amm" is a legacy feature, unused by the experiments
-NETWORKS = ("erdos_renyi", "watts_strogatz", "barabasi_albert", "holme_kim", "sbm")
 MANIPULATORS = ("none", "twin", "pump", "spoof")
+
+DEFAULTS_FILE = Path(__file__).resolve().parents[2] / "configs" / "default.toml"
+"""The frozen defaults: one line per `Config` field, nothing else."""
+
+
+def _read_toml(path: Path) -> dict[str, object]:
+    try:
+        with Path(path).open("rb") as f:
+            return tomllib.load(f)
+    except tomllib.TOMLDecodeError as e:
+        raise ValueError(f"{path}: {e}") from e
+
+
+_DEFAULTS = _read_toml(DEFAULTS_FILE)
+
+
+def _default(name: str) -> object:
+    if name not in _DEFAULTS:
+        raise ValueError(f"{DEFAULTS_FILE} is missing the setting {name!r}")
+    return _DEFAULTS[name]
 
 
 def _is_int(value: object) -> bool:
@@ -27,111 +51,114 @@ def _is_real(value: object) -> bool:
 
 @dataclass(frozen=True, kw_only=True)
 class Config:
-    """Parameters of one run. Experiments vary one field at a time around the defaults."""
+    """Parameters of one run. Experiments vary one field at a time around the defaults,
+    which come from `configs/default.toml`."""
 
-    n_agents: int = 300
-    n_steps: int = 2000
-    turns_per_step: int = 20
+    n_agents: int = _default("n_agents")
+    n_steps: int = _default("n_steps")
+    turns_per_step: int = _default("turns_per_step")
     """Agents drawn each step, without replacement (equal chances unless `activity` is
     pinned)."""
 
     # Market rules. E1: "clob" with no fees vs "clob" with Kalshi fees. "amm" (the LMSR, no
     # fees) is a legacy feature, no longer used by any experiment.
-    mechanism: str = "clob"
-    lmsr_b: float = 50.0
+    mechanism: str = _default("mechanism")
+    lmsr_b: float = _default("lmsr_b")
     """LMSR liquidity, in contracts: one contract moves a 50c price by 25 / b cents.
     Legacy: used only by the AMM."""
 
     # Fee rates in basis points (700 = 0.07). Kalshi's default market charges takers
     # 0.07 and makers nothing. The AMM has no fees, so it requires both to be 0.
-    taker_fee_bp: int = 700
-    maker_fee_bp: int = 0
+    taker_fee_bp: int = _default("taker_fee_bp")
+    maker_fee_bp: int = _default("maker_fee_bp")
 
     # Order book reading and upkeep (PLAN.md Section 2.2; starting guesses).
-    spread_cap: int = 10
+    spread_cap: int = _default("spread_cap")
     """Widest spread, in cents, at which agents read the midpoint instead of the last trade."""
-    depth_window: int = 2
+    depth_window: int = _default("depth_window")
     """Cents from each best price counted in book imbalance (must cover the spoofer's k)."""
-    stale_ticks: int = 3
+    stale_ticks: int = _default("stale_ticks")
     """A resting order this many cents or more behind the best quote on its side is stale."""
-    stale_steps: int = 20
+    stale_steps: int = _default("stale_steps")
     """Steps a resting order may sit stale before its owner cancels it to reprice."""
 
     # Market-maker component in the CLOB (PLAN.md Section 2.1). mm_size and
     # mm_half_spread were calibrated (Steps 7, 8b, and 8c); the rest are starting guesses.
-    mm_cash: int = 1_000_000
+    mm_cash: int = _default("mm_cash")
     """Market maker's starting cash, in cents."""
-    mm_size: int = 36
+    mm_size: int = _default("mm_size")
     """Contracts quoted on each side; 0 turns the market maker off."""
-    mm_half_spread: float = 2.72
+    mm_half_spread: float = _default("mm_half_spread")
     """Base half-spread, in cents."""
-    mm_max_half_spread: float = 10.0
-    mm_alpha: float = 0.1
+    mm_max_half_spread: float = _default("mm_max_half_spread")
+    mm_alpha: float = _default("mm_alpha")
     """Weight of each new trade price in the market maker's moving price estimate."""
-    mm_skew: float = 0.05
+    mm_skew: float = _default("mm_skew")
     """Cents the quotes move against each contract of inventory."""
-    mm_widen: float = 0.5
+    mm_widen: float = _default("mm_widen")
     """Extra half-spread, in cents, per cent of markout loss per quoted contract."""
-    mm_decay: float = 0.9
+    mm_decay: float = _default("mm_decay")
     """Share of the extra half-spread kept from one step to the next."""
-    mm_max_inventory: int = 200
+    mm_max_inventory: int = _default("mm_max_inventory")
     """Hard cap on the market maker's inventory, in contracts long or short."""
 
     # World (PLAN.md Section 2.4): M clues, each pointing to the truth with probability
     # q. The first K are the private pool; the other M - K are released as news.
-    n_clues_total: int = 80
+    n_clues_total: int = _default("n_clues_total")
     """M; 0 gives a world with no information at all (P* stays at 50%)."""
-    n_private: int = 60
-    clue_accuracy: float = 0.53
-    n_news_seeds: int = 5
+    n_private: int = _default("n_private")
+    clue_accuracy: float = _default("clue_accuracy")
+    n_news_seeds: int = _default("n_news_seeds")
     """Agents who receive each news (or fake) clue directly when it is released."""
 
-    # Information layer (PLAN.md Section 2.4). E2 varies `network` and `disinfo_ratio`.
-    network: str = "holme_kim"
-    mean_degree: int = 8
-    """The same in every network; must be even (Watts-Strogatz and the BA-type graphs).
+    # Information layer (PLAN.md Section 2.4): a Holme-Kim network. E2 varies
+    # `disinfo_ratio`.
+    network: str = _default("network")
+    """"holme_kim" in every experiment. "watts_strogatz" (a ring, rewired with
+    `ws_rewire`) is only for small demos: a ring of 3 is a triangle (`configs/level_1.toml`)."""
+    mean_degree: int = _default("mean_degree")
+    """Must be even: each new Holme-Kim node makes `mean_degree / 2` links, and each
+    Watts-Strogatz node links to `mean_degree / 2` neighbors on each side.
 
     0 means no network at all: news stays with its seed agents (single-agent tests).
     """
-    ws_rewire: float = 0.1
-    """Watts-Strogatz rewiring probability."""
-    hk_triad: float = 0.5
+    hk_triad: float = _default("hk_triad")
     """Holme-Kim chance of closing a triangle after each preferential link."""
-    sbm_cross_share: float = 0.05
-    """Stochastic block model: expected share of a node's links into the other group."""
-    beta: float = 0.5
+    ws_rewire: float = _default("ws_rewire")
+    """Watts-Strogatz rewiring probability (demos only)."""
+    beta: float = _default("beta")
     """Chance per step that a spreader tells each neighbor."""
-    disinfo_ratio: float = 0.0
-    """Fake clues per true news clue (0, 0.05, 0.1, 0.2 give 0, 1, 2, 4 fakes)."""
+    disinfo_ratio: float = _default("disinfo_ratio")
+    """Fake clues per true news clue (0, 0.05, 0.1, 0.2, 0.5 give 0, 1, 2, 4, 10 fakes)."""
 
     # Manipulator (PLAN.md Section 2.3; E3). "none" in E1 and E2; "twin" adds the
     # manipulator's agent trading honestly throughout (E3's baseline, the honest twin);
     # "pump" and "spoof" add its manipulation layer from `manip_start`. Order book only.
     # Every setting is the experimenter's choice (starting guesses, PLAN.md Section 2.3).
-    manipulator: str = "none"
-    manip_n_clues: int = 2
+    manipulator: str = _default("manipulator")
+    manip_n_clues: int = _default("manip_n_clues")
     """Private clues the manipulator holds: the population's median informedness."""
-    manip_cash_share: float = 0.05
+    manip_cash_share: float = _default("manip_cash_share")
     """Manipulator's starting cash as a share of all agents' starting cash on the seed."""
-    manip_start: int = 1000
+    manip_start: int = _default("manip_start")
     """Step on which the manipulation layer starts; before it, and after it ends, the
     manipulator follows the honest rules."""
-    manip_chunk: int = 2000
+    manip_chunk: int = _default("manip_chunk")
     """Most contracts the pump buys, or the dump sells, per turn."""
-    pump_push: int = 5
+    pump_push: int = _default("pump_push")
     """Cents above the start price at which the pump stops buying."""
-    pump_max_steps: int = 100
+    pump_max_steps: int = _default("pump_max_steps")
     """Longest the pump buys, and the dump sells, before moving on."""
-    pump_hold: int = 50
+    pump_hold: int = _default("pump_hold")
     """Steps the pump holds its inventory before dumping it."""
-    spoof_size: int = 20_000
+    spoof_size: int = _default("spoof_size")
     """Contracts in each fake bid."""
-    spoof_ticks: int = 2
+    spoof_ticks: int = _default("spoof_ticks")
     """Cents behind the best bid at which the fake bid rests (at most `depth_window`)."""
-    spoof_qty: int = 2000
+    spoof_qty: int = _default("spoof_qty")
     """Contracts the spoofer offers for real at the best ask, reposted whenever its
     offer has filled or the best ask has moved away from it."""
-    spoof_steps: int = 500
+    spoof_steps: int = _default("spoof_steps")
     """Steps the spoofing lasts."""
 
     # Agent traits (PLAN.md Section 2.2). Only informedness and cash vary across agents;
@@ -141,30 +168,30 @@ class Config:
     # average of beliefs, so how much of the cash the informed hold (cash_rho) sets how
     # far it moves toward P*. Calibrated in Step 8c except informedness, w_hearsay,
     # w_depth, and g.
-    n_clues_mean: float = 20.0
-    n_clues_dispersion: float = 0.2
-    cash_median: int = 233_400
+    n_clues_mean: float = _default("n_clues_mean")
+    n_clues_dispersion: float = _default("n_clues_dispersion")
+    cash_median: int = _default("cash_median")
     """Median starting cash, in cents (lognormal)."""
-    cash_sigma: float = 1.30
+    cash_sigma: float = _default("cash_sigma")
     """Log-scale spread of starting cash."""
-    cash_rho: float = 0.625
+    cash_rho: float = _default("cash_rho")
     """Rank correlation (Gaussian copula) of starting cash with informedness: market
     selection leaves more of the money with the well-informed (PLAN.md Section 2.2)."""
-    w_hearsay: float = 0.39
+    w_hearsay: float = _default("w_hearsay")
     """Weight on fakes heard from neighbors, 0 to 1 (no data anchor)."""
-    market_trust: float = 35.3
+    market_trust: float = _default("market_trust")
     """How many clues each agent thinks the price is worth."""
-    w_depth: float = 0.1
+    w_depth: float = _default("w_depth")
     """Log-odds nudge per unit of book imbalance, 0 to 1 (no data anchor)."""
-    noise: float = 0.0506
+    noise: float = _default("noise")
     """Belief noise per turn, in log-odds."""
-    min_edge: float = 2.22
+    min_edge: float = _default("min_edge")
     """Smallest edge worth acting on, in cents."""
-    patience: float = 0.902
+    patience: float = _default("patience")
     """Chance of posting a resting order instead of waiting."""
-    kelly_frac: float = 0.274
+    kelly_frac: float = _default("kelly_frac")
     """Fraction of the full Kelly bet placed."""
-    g: float = 0.8
+    g: float = _default("g")
     """Probability weighting: 1 is none, below 1 overweights longshots (lab estimates)."""
 
     @property
@@ -222,7 +249,7 @@ class Config:
             raise ValueError(f"network must be one of {NETWORKS}, got {self.network!r}")
         if self.mean_degree % 2 or not 0 <= self.mean_degree < self.n_agents:
             raise ValueError("mean_degree must be even, non-negative, and below n_agents")
-        for name in ("ws_rewire", "hk_triad", "sbm_cross_share", "beta"):
+        for name in ("hk_triad", "ws_rewire", "beta"):
             if not 0 <= getattr(self, name) <= 1:
                 raise ValueError(f"{name} must be between 0 and 1")
         if self.disinfo_ratio < 0:
@@ -254,6 +281,24 @@ class Config:
             raise ValueError(
                 "spoof_ticks cannot exceed depth_window: agents would never see the fake bid"
             )
+
+
+def load_defaults(path: Path = DEFAULTS_FILE) -> dict[str, object]:
+    """Read a defaults file and check it sets every `Config` field and nothing else.
+
+    Raises ValueError for a missing or unknown setting or an unreadable file."""
+    data = _read_toml(path)
+    names = {f.name for f in fields(Config)}
+    missing, unknown = sorted(names - set(data)), sorted(set(data) - names)
+    if missing:
+        raise ValueError(f"{path} is missing setting(s): {', '.join(missing)}")
+    if unknown:
+        raise ValueError(f"{path} has unknown setting(s): {', '.join(unknown)}")
+    return data
+
+
+load_defaults()
+Config()  # fail at import, not mid-run, if configs/default.toml holds an invalid value
 
 
 def clob_config(**overrides: object) -> Config:

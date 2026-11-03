@@ -12,9 +12,8 @@ n_news_seeds = 0
 mean_degree = 0           # no network
 
 mm_size = 0               # market maker off
+noise = 0.0               # no belief noise
 
 [traits]
 n_clues = [20, 0]         # agent 0 holds all 20 private clues, agent 1 none
-noise = 0.0               # no belief noise
 cash = 100_000
-activity = 1.0

@@ -1,14 +1,10 @@
-"""Social networks and how news and disinformation spread on them (PLAN.md Section 2.4).
+"""The social network and how news and disinformation spread on it (PLAN.md Section 2.4).
 
-Every network has `n_agents` nodes and the same mean degree, so only its shape differs:
-
-| Name          | NetworkX generator                    | Adds                         |
-|---------------|---------------------------------------|------------------------------|
-| erdos_renyi   | gnp_random_graph(N, k / (N - 1))      | nothing (null baseline)      |
-| watts_strogatz| connected_watts_strogatz_graph(N, k)  | clustering, a few long links |
-| barabasi_albert| barabasi_albert_graph(N, k / 2)      | hubs                         |
-| holme_kim     | powerlaw_cluster_graph(N, k / 2, p)   | hubs and clustering          |
-| sbm           | stochastic_block_model, two halves    | two communities              |
+The network is a Holme-Kim graph (NetworkX `powerlaw_cluster_graph(N, k / 2, p)`):
+preferential attachment gives it hubs, and closing a triangle with probability
+`hk_triad` after each preferential link gives it clustering. A Watts-Strogatz ring
+(`connected_watts_strogatz_graph(N, k, ws_rewire)`) is kept only for small hand-built
+demos, such as the triangle of `configs/level_1.toml`; no experiment uses it.
 
 Spreading rules: private clues never spread; only news and fake clues do. An agent that
 learns one (as a seed or from a neighbor) keeps it until it has had its next turn to
@@ -22,52 +18,10 @@ however many neighbors relay it.
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
 import networkx as nx
 import numpy as np
 
 from kalshi_model.config import Config
-
-
-def _erdos_renyi(config: Config, seed: int) -> nx.Graph:
-    n = config.n_agents
-    return nx.gnp_random_graph(n, config.mean_degree / (n - 1), seed=seed)
-
-
-def _watts_strogatz(config: Config, seed: int) -> nx.Graph:
-    return nx.connected_watts_strogatz_graph(
-        config.n_agents, config.mean_degree, config.ws_rewire, seed=seed
-    )
-
-
-def _barabasi_albert(config: Config, seed: int) -> nx.Graph:
-    return nx.barabasi_albert_graph(config.n_agents, config.mean_degree // 2, seed=seed)
-
-
-def _holme_kim(config: Config, seed: int) -> nx.Graph:
-    return nx.powerlaw_cluster_graph(
-        config.n_agents, config.mean_degree // 2, config.hk_triad, seed=seed
-    )
-
-
-def _sbm(config: Config, seed: int) -> nx.Graph:
-    # Two equal groups. A share `sbm_cross_share` of each node's expected links cross over.
-    n = config.n_agents
-    sizes = [n // 2, n - n // 2]
-    k, cross = config.mean_degree, config.sbm_cross_share
-    p_in = k * (1 - cross) / (sizes[0] - 1)
-    p_out = k * cross / sizes[1]
-    return nx.stochastic_block_model(sizes, [[p_in, p_out], [p_out, p_in]], seed=seed)
-
-
-GENERATORS: dict[str, Callable[[Config, int], nx.Graph]] = {
-    "erdos_renyi": _erdos_renyi,
-    "watts_strogatz": _watts_strogatz,
-    "barabasi_albert": _barabasi_albert,
-    "holme_kim": _holme_kim,
-    "sbm": _sbm,
-}
 
 
 def build_network(config: Config, rng: np.random.Generator) -> nx.Graph:
@@ -75,7 +29,14 @@ def build_network(config: Config, rng: np.random.Generator) -> nx.Graph:
     seed = int(rng.integers(2**32))
     if config.mean_degree == 0:
         return nx.empty_graph(config.n_agents)
-    graph = GENERATORS[config.network](config, seed)
+    if config.network == "watts_strogatz":
+        graph = nx.connected_watts_strogatz_graph(
+            config.n_agents, config.mean_degree, config.ws_rewire, seed=seed
+        )
+    else:
+        graph = nx.powerlaw_cluster_graph(
+            config.n_agents, config.mean_degree // 2, config.hk_triad, seed=seed
+        )
     graph = nx.convert_node_labels_to_integers(graph)
     graph.remove_edges_from(nx.selfloop_edges(graph))
     return graph
