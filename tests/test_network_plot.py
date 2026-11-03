@@ -124,7 +124,7 @@ def test_unsettled_run_is_rejected():
         network_chart(model)
 
 
-def test_triangle_config_is_a_triangle_of_equal_agents():
+def test_line_config_has_equal_agents():
     custom = load_custom(CONFIGS / "test_3.toml", {"n_steps": 60})
     model = MarketModel(custom.config, 20000, fixed_traits=custom.fixed_traits)
     model.run()
