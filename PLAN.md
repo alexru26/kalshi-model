@@ -66,7 +66,7 @@ Python 3.12 + Mesa 3.x (an agent-based modeling library). Code is in `src/kalshi
 
 ### 2.2 Agents
 
-Agents have no type labels. Each agent is a vector of traits drawn at setup, and behavior follows from the traits; "recreational bettor" and "expert" are regions of trait space. Uninformed agents are essential: without them informed agents have no one to trade with (Milgrom & Stokey 1982; Grossman & Stiglitz 1980).
+Agents have no type labels. Each agent is a vector of traits set at setup, and behavior follows from the traits; "recreational bettor" and "expert" are regions of trait space. Uninformed agents are essential: without them informed agents have no one to trade with (Milgrom & Stokey 1982; Grossman & Stiglitz 1980).
 
 **Each turn an agent:**
 
@@ -83,33 +83,33 @@ Agents have no type labels. Each agent is a vector of traits drawn at setup, and
 3. **Maintains its resting orders** (before acting, so it never rests an order and takes the other side in one turn). It cancels an order whose edge has fallen below `min_edge` (risk of being picked off by better-informed traders), and an order 3c or more behind the best quote for 20 steps, so it can repost (risk of never filling). These are the two motives for canceling in the literature (Copeland & Galai 1983; Liu 2009; Fong & Liu 2010). Agents notice stale orders only on their own turns, which models costly monitoring (Foucault, Roell & Sandas 2003).
 4. **Acts.** If trading now beats its perceived value by at least `min_edge` after fees, it trades immediately (immediate-or-cancel, as deep in the book as that holds). Otherwise, with probability `patience`, it posts a resting order `min_edge` inside its value, never crossing the book, sized to the gap between target and position plus existing resting orders. Otherwise it waits.
 
-**Turns.** Each step, 20 agents are drawn without replacement, weighted by `activity`.
+**Turns.** Each step, 20 agents are drawn without replacement, each equally likely.
 
-**Traits:**
+**Traits.** Heterogeneity is added only where a mechanism needs it. Two traits vary across agents:
 
 | Trait | Controls | Distribution |
 |---|---|---|
 | `n_clues` | private clues held (informedness) | negative binomial (mean 20, capped at 60): about 40% hold none, the top 10% hold most of the pool |
-| `w_hearsay` | weight on fakes heard from neighbors | logit-normal, mean falling with `n_clues` (experts discount advice, Yaniv 2004) |
-| `market_trust` | how many clues the agent thinks the price is worth | Gamma |
-| `w_depth` | log-odds nudge from book imbalance | Beta, small |
-| `noise` | belief error per turn | half-normal, scaled by `exp(-noise_delta * n_clues)` |
-| `min_edge` | smallest edge (cents) worth acting on | half-normal |
-| `patience` | chance of posting a resting order instead of waiting | logit-normal, mean rising with `n_clues` |
-| `kelly_frac` | fraction of the Kelly bet placed | Beta, well below 1 |
-| `g` | probability weighting (1 = none, below 1 = overweights longshots) | Beta on 0.6 to 1, mean from lab estimates (Tversky & Kahneman 1992; Gonzalez & Wu 1999) |
 | `cash` | starting budget | lognormal, rank-correlated with `n_clues` (Gaussian copula, `cash_rho`) |
-| `activity` | how often the agent gets a turn | lognormal weights |
 
-Bounded traits use bounded distributions, so nothing is clipped. Traits are independent except four links to informedness, each needed for a reason:
-- *Patience rises:* when news arrives, inexperienced agents take liquidity at once while informed agents post orders at their value and let the price come to them, matching attention-driven retail buying (Barber & Odean 2008) and the gradual informed trader (Kyle 1985).
-- *Cash rises:* traders with better beliefs grow wealth over many markets, so the informed come to hold more of the money (Blume & Easley 2006; Kets et al. 2014). Only who holds the cash changes, not its overall distribution. Without this link the price follows the few richest agents (the top tenth hold about three quarters of the cash), who are mostly uninformed; this was the largest single cause of the old price compression toward 50c.
-- *Noise falls:* retail beliefs are noisier than experts'. Noise traders are what informed traders profit from and what keeps a market liquid (Black 1986; De Long et al. 1990). Without this link, once the informed hold most of the cash, they mostly trade with each other and lose fees.
-- *`w_hearsay` falls:* experts discount advice.
+Informedness must vary, since informed traders need uninformed ones to trade with. Cash varies because wealth is heavy-tailed, which sets the spread of trade sizes. It is linked to informedness because traders with better beliefs grow wealth over many markets, so the informed come to hold more of the money (Blume & Easley 2006; Kets et al. 2014). Only who holds the cash changes, not its overall distribution. Without this link the price follows the few richest agents (the top tenth hold about three quarters of the cash), who are mostly uninformed. The link is drawn after the other traits, so they are the same on each seed with or without it.
 
-The cash link is drawn after the other traits, so the other traits are the same on each seed with or without it.
+Every other trait is one value shared by all agents, since each works through its level, not its spread:
 
-**How values are set (calibration).** The trait distributions (except `g`, informedness, `w_hearsay`, and `w_depth`) and the market maker's size and spread are calibrated once with **pattern-oriented modeling** (Grimm et al. 2005): search for settings under which the Kalshi default reproduces several real patterns at once, then freeze them for all experiments. Real targets come from Kalshi's public API. The patterns:
+| Trait | Controls | Value |
+|---|---|---|
+| `w_hearsay` | weight on fakes heard from neighbors | 0.39 (no data anchor) |
+| `market_trust` | how many clues the agent thinks the price is worth | 49 |
+| `w_depth` | log-odds nudge from book imbalance | 0.1 (no data anchor) |
+| `noise` | belief error per turn (log-odds) | 0.033 |
+| `min_edge` | smallest edge (cents) worth acting on | 2.07c |
+| `patience` | chance of posting a resting order instead of waiting | 0.75 |
+| `kelly_frac` | fraction of the Kelly bet placed | 0.325 |
+| `g` | probability weighting (1 = none, below 1 = overweights longshots) | 0.8, from lab estimates (Tversky & Kahneman 1992; Gonzalez & Wu 1999) |
+
+These values are the population means of the Step 8b trait distributions, pending recalibration (Step 8c). Any trait can still be pinned per agent in a custom configuration.
+
+**How values are set (calibration).** The cash distribution and its link, the single trait values (except `g`, `w_hearsay`, and `w_depth`), and the market maker's size and spread are calibrated once with **pattern-oriented modeling** (Grimm et al. 2005): search for settings under which the Kalshi default reproduces several real patterns at once, then freeze them for all experiments. Real targets come from Kalshi's public API. The patterns:
 
 1. **Trade sizes** match Kalshi's.
 2. **Spreads** fall within the middle half of liquid Kalshi markets (median 2c, interquartile range 1-6c). This only rules out wide spreads: the model's median is 1c.
@@ -122,7 +122,7 @@ The search (`experiments/calibrate.py`, `results/calibration.csv`) draws candida
 
 ### 2.3 Manipulator (E3)
 
-The manipulator is an agent with the trait vector, a fixed set of private clues, and a large budget; it pays fees. Its traits are set, not drawn: each is the population median at median informedness (2 private clues), except that it ignores book imbalance (it knows which depth is its own). Its budget is 5% of all agents' cash on that seed. It trades every step, is not on the social network (it learns news only through the price), and uses its own random stream, so the world, the population, and agents' turns are identical with or without it. It follows the honest agent rules **plus a manipulation layer** from step 1000 (order book only), aiming to maximize profit:
+The manipulator is an agent with the trait vector, a fixed set of private clues, and a large budget; it pays fees. Its traits are set, not drawn: the population's single values, with median informedness (2 private clues), except that it ignores book imbalance (it knows which depth is its own). Its budget is 5% of all agents' cash on that seed. It trades every step, is not on the social network (it learns news only through the price), and uses its own random stream, so the world, the population, and agents' turns are identical with or without it. It follows the honest agent rules **plus a manipulation layer** from step 1000 (order book only), aiming to maximize profit:
 
 - **Pump and dump** (Allen & Gale 1992): buy, taking up to 2,000 contracts a turn, until the price is 5c above its starting level (at most 100 steps); hold 50 steps; then sell what it bought into bids no lower than the starting price (at most 100 steps). It profits only if price-following agents buy from it.
 - **Spoofing:** for 500 steps, keep a fake bid of 20,000 contracts 2c behind the best bid (moved every turn as the best bid moves, Wang & Wellman 2017), and a real offer of 2,000 contracts at the best ask, reposted when it fills or the ask moves. The fake bid inflates the imbalance agents read, pushing their beliefs up so they buy its offer. It profits only if agents read depth, and it needs free cancellation. The fake bid can still fill if a large seller sweeps the book between the spoofer's turns; at 1c behind it filled far more often than at 2c, the edge of the 2c imbalance window.
@@ -218,6 +218,7 @@ Market mechanics (`fees.py`, `orderbook.py`, and `lmsr.py` for the legacy AMM) a
     - The price ignored news (weighting a news clue at 0.21 of its value versus 0.84 for a private clue), because news reached most agents secondhand as hearsay, which the cash-rich informed discount. Fix: true news counts as own evidence; only fakes are hearsay.
 
     Then recalibrate with patterns 5 and 6 required and `cash_rho`, `noise_delta`, and wider `market_trust` and `noise_scale` ranges in the search, and rerun E1 and E2 on the same seeds. The final search accepted 101 of 1,500 candidates; on 480 fresh seeds the frozen setting's slope is 1.10 to 1.18, and the informed earn on three of four seed sets (+$66 per agent pooled). `PREDICTIONS.md` stays unchanged (its predictions concern mechanisms); `RESULTS.md` keeps a short record of the first model's results and why the model changed. *Done when* the frozen default passes every pattern on fresh seeds and `RESULTS.md` reports each prediction for the revised model.
+8c. **Simplify the traits** (in progress). Only informedness and cash vary across agents; every other trait is one value (Section 2.2), so the report justifies two distributions instead of eleven, and the links of `w_hearsay`, `noise`, and `patience` to informedness are gone. The single values start at the means of the Step 8b distributions. The `noise` link was added in Step 8b so the informed would have noise traders to profit from. Before recalibration, on 48 fresh seeds, every pattern passes except informed-earn: the best-informed tenth lose $91 per agent, and agents with no clues about break even. Then recalibrate over the new search space (`calibration.SPACE`) and rerun E1 to E3. *Done when* the frozen default passes every pattern on fresh seeds and `RESULTS.md` reports each prediction for the simplified model.
 9. **Manipulator; run E3** (done). Pump-and-dump and spoofing layers and the honest twin (`src/kalshi_model/manipulator.py`); predictions first, then `experiments/e3_manipulation.py` writes `results/e3_manipulation.csv`. *Done when* invariants hold with the manipulator present and `RESULTS.md` reports each E3 prediction against the data.
 10. **Kalshi calibration check** (Section 3), including the `g = 1` rerun.
 11. **Robustness.** Rerun the key paired comparisons of E1 to E3 on the spread-out set of accepted calibrations from Step 7 and report how often each effect's sign holds (appendix figure).

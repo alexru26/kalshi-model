@@ -1,12 +1,14 @@
 """The single configuration object for a model run.
 
-Every parameter lives here (PLAN.md Section 4). The trait distributions and the market
+Every parameter lives here (PLAN.md Section 4). The trait settings and the market
 maker were calibrated in Step 7, and again in Step 8b, against real Kalshi patterns
 (`experiments/calibrate.py`, `results/calibration.csv`) and are frozen for all
-experiments. `g` (set from lab
-estimates), informedness (set in Step 3), `w_hearsay` and `w_depth` (no data anchor), and
-the network, legacy AMM, and order-upkeep settings are assumptions or starting guesses, and
-the manipulator's settings (E3) are the experimenter's choice.
+experiments. Since Step 8c only informedness and cash vary across agents; each other
+trait is set to the population mean of its Step 8b distribution until calibration is
+rerun. `g` (set from lab estimates), informedness (set in Step 3), `w_hearsay` and
+`w_depth` (no data anchor), and the network, legacy AMM, and order-upkeep settings are
+assumptions or starting guesses, and the manipulator's settings (E3) are the
+experimenter's choice.
 """
 
 from dataclasses import dataclass, fields
@@ -31,7 +33,8 @@ class Config:
     n_agents: int = 300
     n_steps: int = 2000
     turns_per_step: int = 20
-    """Agents drawn each step, without replacement, with chance weighted by `activity`."""
+    """Agents drawn each step, without replacement (equal chances unless `activity` is
+    pinned)."""
 
     # Market rules. E1: "clob" with no fees vs "clob" with Kalshi fees. "amm" (the LMSR, no
     # fees) is a legacy feature, no longer used by any experiment.
@@ -132,44 +135,38 @@ class Config:
     spoof_steps: int = 500
     """Steps the spoofing lasts."""
 
-    # Trait distributions (PLAN.md Section 2.2). Calibrated (Steps 7 and 8b) except informedness,
-    # w_hearsay (hearsay_*), w_depth (depth_*), and g.
-    # Informedness is heavy-tailed: with mean 20 and dispersion 0.2, about 40% of agents
-    # hold no private clue and the top 10% hold most of the pool. The price is roughly a
-    # wealth-weighted average of beliefs, so how much of the cash the informed hold
-    # (cash_rho) sets how far it moves toward P*.
+    # Agent traits (PLAN.md Section 2.2). Only informedness and cash vary across agents;
+    # every other trait is one value for the whole population. Informedness is
+    # heavy-tailed: with mean 20 and dispersion 0.2, about 40% of agents hold no private
+    # clue and the top 10% hold most of the pool. The price is roughly a wealth-weighted
+    # average of beliefs, so how much of the cash the informed hold (cash_rho) sets how
+    # far it moves toward P*. The single values are the population means of the Step 8b
+    # distributions, pending recalibration (Step 8c).
     n_clues_mean: float = 20.0
     n_clues_dispersion: float = 0.2
-    hearsay_mu: float = 0.0
-    hearsay_gamma: float = 0.05
-    hearsay_sigma: float = 1.0
-    market_trust_shape: float = 2.0
-    market_trust_scale: float = 24.5
-    depth_alpha: float = 1.0
-    depth_beta: float = 9.0
-    noise_scale: float = 0.0589
-    """Half-normal scale of belief noise for an agent with no private clues."""
-    noise_delta: float = 0.0444
-    """Belief noise falls by a factor exp(-noise_delta) per private clue: retail traders'
-    beliefs are noisier (noise traders, Black 1986; PLAN.md Section 2.2)."""
-    min_edge_scale: float = 2.59
-    """Half-normal scale of `min_edge`, in cents."""
-    patience_mu: float = 0.843
-    patience_delta: float = 0.05
-    patience_sigma: float = 1.0
-    kelly_alpha: float = 3.25
-    kelly_beta: float = 6.75
-    g_low: float = 0.6
-    g_high: float = 1.0
-    g_alpha: float = 2.0
-    g_beta: float = 2.0
     cash_median: int = 98_400
-    """Median starting cash, in cents."""
+    """Median starting cash, in cents (lognormal)."""
     cash_sigma: float = 2.29
+    """Log-scale spread of starting cash."""
     cash_rho: float = 0.634
     """Rank correlation (Gaussian copula) of starting cash with informedness: market
     selection leaves more of the money with the well-informed (PLAN.md Section 2.2)."""
-    activity_sigma: float = 1.06
+    w_hearsay: float = 0.39
+    """Weight on fakes heard from neighbors, 0 to 1 (no data anchor)."""
+    market_trust: float = 49.0
+    """How many clues each agent thinks the price is worth."""
+    w_depth: float = 0.1
+    """Log-odds nudge per unit of book imbalance, 0 to 1 (no data anchor)."""
+    noise: float = 0.033
+    """Belief noise per turn, in log-odds."""
+    min_edge: float = 2.07
+    """Smallest edge worth acting on, in cents."""
+    patience: float = 0.75
+    """Chance of posting a resting order instead of waiting."""
+    kelly_frac: float = 0.325
+    """Fraction of the full Kelly bet placed."""
+    g: float = 0.8
+    """Probability weighting: 1 is none, below 1 overweights longshots (lab estimates)."""
 
     @property
     def n_fakes(self) -> int:
@@ -186,16 +183,14 @@ class Config:
 
         positive = (
             "n_agents n_steps turns_per_step lmsr_b n_clues_mean "
-            "n_clues_dispersion market_trust_shape market_trust_scale depth_alpha "
-            "depth_beta kelly_alpha kelly_beta g_alpha g_beta cash_median spread_cap "
+            "n_clues_dispersion cash_median spread_cap "
             "stale_ticks stale_steps mm_half_spread mm_max_half_spread mm_alpha "
             "mm_max_inventory manip_cash_share manip_start manip_chunk pump_push "
             "pump_max_steps spoof_size spoof_ticks spoof_qty spoof_steps"
         )
         non_negative = (
-            "taker_fee_bp maker_fee_bp n_clues_total n_private n_news_seeds hearsay_gamma "
-            "hearsay_sigma noise_scale noise_delta min_edge_scale patience_delta "
-            "patience_sigma cash_sigma activity_sigma depth_window mm_cash mm_size mm_skew "
+            "taker_fee_bp maker_fee_bp n_clues_total n_private n_news_seeds market_trust "
+            "noise min_edge cash_sigma depth_window mm_cash mm_size mm_skew "
             "mm_widen mm_decay manip_n_clues pump_hold"
         )
         for name in positive.split():
@@ -239,8 +234,11 @@ class Config:
             raise ValueError("mm_half_spread cannot exceed mm_max_half_spread")
         if not -1 < self.cash_rho < 1:
             raise ValueError("cash_rho must be strictly between -1 and 1")
-        if not 0 < self.g_low <= self.g_high <= 1:
-            raise ValueError("g must satisfy 0 < g_low <= g_high <= 1")
+        for name in ("w_hearsay", "w_depth", "patience", "kelly_frac"):
+            if not 0 <= getattr(self, name) <= 1:
+                raise ValueError(f"{name} must be between 0 and 1")
+        if not 0 < self.g <= 1:
+            raise ValueError("g must satisfy 0 < g <= 1")
         if self.manipulator not in MANIPULATORS:
             raise ValueError(f"manipulator must be one of {MANIPULATORS}, got {self.manipulator!r}")
         if self.manipulator != "none" and self.mechanism != "clob":

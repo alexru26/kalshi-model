@@ -8,7 +8,8 @@
 #   Kalshi:         mechanism = "clob", taker_fee_bp = 700, maker_fee_bp = 0
 #   CLOB, no fees:  mechanism = "clob", taker_fee_bp = 0,   maker_fee_bp = 0
 #   AMM (LMSR):     mechanism = "amm",  taker_fee_bp = 0,   maker_fee_bp = 0   (legacy, not in E1)
-# Money is in integer cents. Settings marked "calibrated" were tuned to Kalshi data.
+# Money is in integer cents. Settings marked "calibrated" were tuned to Kalshi data; the
+# single trait values are the means of the last calibrated distributions (PLAN.md Step 8c).
 
 # --- Run size --------------------------------------------------------------------------
 n_agents = 300
@@ -67,38 +68,27 @@ spoof_ticks = 2               # cents behind the best bid for the fake bid (<= d
 spoof_qty = 2000              # contracts the spoofer really offers at the best ask
 spoof_steps = 500             # steps the spoofing lasts
 
-# --- Agent trait distributions (calibrated unless noted) -------------------------------
+# --- Agent traits ----------------------------------------------------------------------
+# Only informedness and cash vary across agents; every other trait is one value for all.
 n_clues_mean = 20.0           # informedness: negative binomial mean (not calibrated)
 n_clues_dispersion = 0.2      # and dispersion; lower = more agents with none (not calibrated)
-hearsay_mu = 0.0              # w_hearsay: logit-normal location (not calibrated)
-hearsay_gamma = 0.05          # how fast it falls per private clue (not calibrated)
-hearsay_sigma = 1.0           # (not calibrated)
-market_trust_shape = 2.0      # market_trust: Gamma shape
-market_trust_scale = 24.5     # and scale
-depth_alpha = 1.0             # w_depth: Beta (not calibrated)
-depth_beta = 9.0
-noise_scale = 0.0589          # belief noise: half-normal scale for an agent with no clues
-noise_delta = 0.0444          # noise falls by exp(-noise_delta) per private clue
-min_edge_scale = 2.59         # min_edge: half-normal scale in cents
-patience_mu = 0.843           # patience: logit-normal location
-patience_delta = 0.05         # how fast it rises per private clue
-patience_sigma = 1.0
-kelly_alpha = 3.25            # kelly_frac: Beta
-kelly_beta = 6.75
-g_low = 0.6                   # probability weighting g: Beta on [g_low, g_high] (from lab estimates)
-g_high = 1.0
-g_alpha = 2.0
-g_beta = 2.0
-cash_median = 98_400          # starting cash: lognormal median
-cash_sigma = 2.29             # and log-scale spread
-cash_rho = 0.634              # rank correlation of cash with informedness
-activity_sigma = 1.06         # turn weights: lognormal spread
+cash_median = 98_400          # starting cash: lognormal median (calibrated)
+cash_sigma = 2.29             # and log-scale spread (calibrated)
+cash_rho = 0.634              # rank correlation of cash with informedness (calibrated)
+w_hearsay = 0.39              # weight on fakes heard from neighbors, 0 to 1 (not calibrated)
+market_trust = 49.0           # how many clues an agent thinks the price is worth (calibrated)
+w_depth = 0.1                 # log-odds nudge from book imbalance, 0 to 1 (not calibrated)
+noise = 0.033                 # belief noise per turn, in log-odds (calibrated)
+min_edge = 2.07               # smallest edge worth acting on, in cents (calibrated)
+patience = 0.75               # chance of posting a resting order instead of waiting (calibrated)
+kelly_frac = 0.325            # fraction of the Kelly bet placed (calibrated)
+g = 0.8                       # probability weighting, 1 = none (from lab estimates)
 
 # --- Pinned traits ---------------------------------------------------------------------
 # Uncomment to fix a trait instead of drawing it: one value for every agent, or a list
 # with one value per agent (e.g. n_clues = [20, 0] for two agents). A pinned n_clues
-# still sets the traits linked to it (w_hearsay, noise, patience, cash) unless those are
-# pinned too.
+# still feeds the cash link unless cash is pinned too. Activity (equal for everyone
+# unless pinned) has no setting above.
 [traits]
 # n_clues = 0                 # private clues held (integer >= 0, capped at n_private)
 # w_hearsay = 0.5             # weight on fakes heard from neighbors, 0 to 1
