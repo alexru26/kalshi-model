@@ -7,8 +7,8 @@ A file (examples in `configs/`) holds:
   longer used by any experiment. The other defaults are the frozen `Config` defaults.
 - Any `Config` field by name, such as `n_agents = 2`.
 - An optional `[traits]` table pinning agent traits: one value for every agent, or a
-  list with one value per agent (`n_clues = [10, 0]`). Unpinned traits are drawn from
-  the config's distributions as usual (`traits.draw_traits`).
+  list with one value per agent (`n_clues = [10, 0]`). Unpinned traits are set from
+  the config as usual (`traits.draw_traits`).
 
 Command-line overrides (`plot_run.py --set key=value`) apply on top of the file; a key
 `traits.<name>` pins a trait.
