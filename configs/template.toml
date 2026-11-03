@@ -46,9 +46,10 @@ clue_accuracy = 0.53          # q: chance each clue points to the truth (0.5 < q
 n_news_seeds = 5              # agents who get each news (or fake) clue at release
 
 # --- Information network ---------------------------------------------------------------
-# A Holme-Kim network: hubs from preferential attachment, plus clustering.
+network = "holme_kim"         # holme_kim; watts_strogatz only for small demos (a ring)
 mean_degree = 8               # even and < n_agents; 0 = no network
-hk_triad = 0.5                # chance of closing a triangle after each preferential link
+hk_triad = 0.5                # Holme-Kim chance of closing a triangle after each link
+ws_rewire = 0.0               # Watts-Strogatz rewiring probability (demos only)
 beta = 0.5                    # chance per step that a spreader tells each neighbor
 disinfo_ratio = 0.0           # fake clues per true news clue
 

@@ -68,7 +68,8 @@ def run_label(model: MarketModel) -> str:
         market = "AMM (LMSR)"
     else:
         market = "Kalshi" if config.taker_fee_bp else "CLOB, no fees"
-    network = "Holme-Kim network" if config.mean_degree else "no network"
+    names = {"holme_kim": "Holme-Kim", "watts_strogatz": "Watts-Strogatz"}
+    network = f"{names[config.network]} network" if config.mean_degree else "no network"
     label = f"{market}, seed {model.seed}, {network}"
     if config.n_fakes:
         label += f", disinformation ratio {config.disinfo_ratio}"

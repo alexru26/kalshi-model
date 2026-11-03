@@ -1,10 +1,12 @@
 from dataclasses import replace
+from pathlib import Path
 
 import networkx as nx
 import numpy as np
 import pytest
 
 from kalshi_model.config import Config, amm_config
+from kalshi_model.custom import load_custom
 from kalshi_model.model import MarketModel
 from kalshi_model.network import build_network, place_agents
 from kalshi_model.rng import make_streams
@@ -51,7 +53,17 @@ def test_zero_degree_means_no_network():
     assert graph.number_of_nodes() == 300 and graph.number_of_edges() == 0
 
 
-@pytest.mark.parametrize("bad", [{"mean_degree": 7}, {"hk_triad": 1.5}, {"beta": 1.5}])
+def test_level_1_demo_is_a_triangle():
+    # The one non-Holme-Kim network: a Watts-Strogatz ring of 3, everyone linked.
+    custom = load_custom(Path(__file__).resolve().parents[1] / "configs" / "level_1.toml")
+    model = MarketModel(custom.config, 0, fixed_traits=custom.fixed_traits)
+    assert model.neighbors == [[1, 2], [0, 2], [0, 1]]
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [{"network": "sbm"}, {"mean_degree": 7}, {"hk_triad": 1.5}, {"ws_rewire": -0.1}, {"beta": 1.5}],
+)
 def test_invalid_network_settings_are_rejected(bad):
     with pytest.raises(ValueError):
         Config(**bad)

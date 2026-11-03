@@ -12,6 +12,7 @@ settings (E3) are the experimenter's choice.
 
 from dataclasses import dataclass, fields
 
+NETWORKS = ("holme_kim", "watts_strogatz")  # "watts_strogatz" only for small demos
 MECHANISMS = ("amm", "clob")  # "amm" is a legacy feature, unused by the experiments
 MANIPULATORS = ("none", "twin", "pump", "spoof")
 
@@ -87,13 +88,19 @@ class Config:
 
     # Information layer (PLAN.md Section 2.4): a Holme-Kim network. E2 varies
     # `disinfo_ratio`.
+    network: str = "holme_kim"
+    """"holme_kim" in every experiment. "watts_strogatz" (a ring, rewired with
+    `ws_rewire`) is only for small demos: a ring of 3 is a triangle (`configs/level_1.toml`)."""
     mean_degree: int = 8
-    """Must be even: each new node makes `mean_degree / 2` links.
+    """Must be even: each new Holme-Kim node makes `mean_degree / 2` links, and each
+    Watts-Strogatz node links to `mean_degree / 2` neighbors on each side.
 
     0 means no network at all: news stays with its seed agents (single-agent tests).
     """
     hk_triad: float = 0.5
     """Holme-Kim chance of closing a triangle after each preferential link."""
+    ws_rewire: float = 0.0
+    """Watts-Strogatz rewiring probability (demos only)."""
     beta: float = 0.5
     """Chance per step that a spreader tells each neighbor."""
     disinfo_ratio: float = 0.0
@@ -213,9 +220,11 @@ class Config:
                 "clue_accuracy must be a float strictly between 0.5 and 1, "
                 f"got {self.clue_accuracy!r}"
             )
+        if self.network not in NETWORKS:
+            raise ValueError(f"network must be one of {NETWORKS}, got {self.network!r}")
         if self.mean_degree % 2 or not 0 <= self.mean_degree < self.n_agents:
             raise ValueError("mean_degree must be even, non-negative, and below n_agents")
-        for name in ("hk_triad", "beta"):
+        for name in ("hk_triad", "ws_rewire", "beta"):
             if not 0 <= getattr(self, name) <= 1:
                 raise ValueError(f"{name} must be between 0 and 1")
         if self.disinfo_ratio < 0:

@@ -134,7 +134,7 @@ Changes from Level 0:
 
 - **3 traders**, still identical (`market_trust = 10`, `noise = 0.05`).
 - **News.** There are now `M = 20` clues. The first 10 are private, dealt as before. The other 10 are **news**, released one at a time at evenly spaced steps (news `j` at step `(j + 1) x T / 11`).
-- **Network.** Traders are the nodes of a line: a Holme-Kim network of 3 in which each new trader links to one earlier one, so the middle trader hears from both ends. Space now means *who talks to whom*, not physical location.
+- **Network.** Traders are the nodes of a triangle (everyone linked to everyone). Space now means *who talks to whom*, not physical location.
 - **Spreading.** At release a news clue is given to 1 random trader. Each step, each trader spreading a clue tells each neighbor with probability `beta = 0.5`. A trader starts passing on a new clue only after its own next trading turn (traders act on news before sharing it). A trader stops retelling a clue once it tells someone who already knew it.
 - **Private clues never spread.** They reach the price only through trading.
 - **Beliefs.** A news clue a trader has learned counts as its own evidence (`L_own` and `n_own` include it). `P*` now includes every private clue held plus all news released so far.

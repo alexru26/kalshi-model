@@ -2,7 +2,9 @@
 
 The network is a Holme-Kim graph (NetworkX `powerlaw_cluster_graph(N, k / 2, p)`):
 preferential attachment gives it hubs, and closing a triangle with probability
-`hk_triad` after each preferential link gives it clustering.
+`hk_triad` after each preferential link gives it clustering. A Watts-Strogatz ring
+(`connected_watts_strogatz_graph(N, k, ws_rewire)`) is kept only for small hand-built
+demos, such as the triangle of `configs/level_1.toml`; no experiment uses it.
 
 Spreading rules: private clues never spread; only news and fake clues do. An agent that
 learns one (as a seed or from a neighbor) keeps it until it has had its next turn to
@@ -23,13 +25,18 @@ from kalshi_model.config import Config
 
 
 def build_network(config: Config, rng: np.random.Generator) -> nx.Graph:
-    """The Holme-Kim network on nodes 0..N-1, drawn from `rng` (the "network" stream)."""
+    """The configured network on nodes 0..N-1, drawn from `rng` (the "network" stream)."""
     seed = int(rng.integers(2**32))
     if config.mean_degree == 0:
         return nx.empty_graph(config.n_agents)
-    graph = nx.powerlaw_cluster_graph(
-        config.n_agents, config.mean_degree // 2, config.hk_triad, seed=seed
-    )
+    if config.network == "watts_strogatz":
+        graph = nx.connected_watts_strogatz_graph(
+            config.n_agents, config.mean_degree, config.ws_rewire, seed=seed
+        )
+    else:
+        graph = nx.powerlaw_cluster_graph(
+            config.n_agents, config.mean_degree // 2, config.hk_triad, seed=seed
+        )
     graph = nx.convert_node_labels_to_integers(graph)
     graph.remove_edges_from(nx.selfloop_edges(graph))
     return graph
