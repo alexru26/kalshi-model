@@ -1,14 +1,13 @@
 """The single configuration object for a model run.
 
-Every parameter lives here (PLAN.md Section 4). The trait settings and the market
-maker were calibrated in Step 7, and again in Step 8b, against real Kalshi patterns
+Every parameter lives here (PLAN.md Section 4). The trait settings and the market maker
+were calibrated in Steps 7, 8b, and 8c against real Kalshi patterns
 (`experiments/calibrate.py`, `results/calibration.csv`) and are frozen for all
 experiments. Since Step 8c only informedness and cash vary across agents; each other
-trait is set to the population mean of its Step 8b distribution until calibration is
-rerun. `g` (set from lab estimates), informedness (set in Step 3), `w_hearsay` and
-`w_depth` (no data anchor), and the network, legacy AMM, and order-upkeep settings are
-assumptions or starting guesses, and the manipulator's settings (E3) are the
-experimenter's choice.
+trait is one population value. `g` (set from lab estimates), informedness (set in Step
+3), `w_hearsay` and `w_depth` (no data anchor), and the network, legacy AMM, and
+order-upkeep settings are assumptions or starting guesses, and the manipulator's
+settings (E3) are the experimenter's choice.
 """
 
 from dataclasses import dataclass, fields
@@ -59,12 +58,12 @@ class Config:
     """Steps a resting order may sit stale before its owner cancels it to reprice."""
 
     # Market-maker component in the CLOB (PLAN.md Section 2.1). mm_size and
-    # mm_half_spread were calibrated (Steps 7 and 8b); the rest are starting guesses.
+    # mm_half_spread were calibrated (Steps 7, 8b, and 8c); the rest are starting guesses.
     mm_cash: int = 1_000_000
     """Market maker's starting cash, in cents."""
-    mm_size: int = 10
+    mm_size: int = 36
     """Contracts quoted on each side; 0 turns the market maker off."""
-    mm_half_spread: float = 2.47
+    mm_half_spread: float = 2.72
     """Base half-spread, in cents."""
     mm_max_half_spread: float = 10.0
     mm_alpha: float = 0.1
@@ -140,30 +139,30 @@ class Config:
     # heavy-tailed: with mean 20 and dispersion 0.2, about 40% of agents hold no private
     # clue and the top 10% hold most of the pool. The price is roughly a wealth-weighted
     # average of beliefs, so how much of the cash the informed hold (cash_rho) sets how
-    # far it moves toward P*. The single values are the population means of the Step 8b
-    # distributions, pending recalibration (Step 8c).
+    # far it moves toward P*. Calibrated in Step 8c except informedness, w_hearsay,
+    # w_depth, and g.
     n_clues_mean: float = 20.0
     n_clues_dispersion: float = 0.2
-    cash_median: int = 98_400
+    cash_median: int = 233_400
     """Median starting cash, in cents (lognormal)."""
-    cash_sigma: float = 2.29
+    cash_sigma: float = 1.30
     """Log-scale spread of starting cash."""
-    cash_rho: float = 0.634
+    cash_rho: float = 0.625
     """Rank correlation (Gaussian copula) of starting cash with informedness: market
     selection leaves more of the money with the well-informed (PLAN.md Section 2.2)."""
     w_hearsay: float = 0.39
     """Weight on fakes heard from neighbors, 0 to 1 (no data anchor)."""
-    market_trust: float = 49.0
+    market_trust: float = 35.3
     """How many clues each agent thinks the price is worth."""
     w_depth: float = 0.1
     """Log-odds nudge per unit of book imbalance, 0 to 1 (no data anchor)."""
-    noise: float = 0.033
+    noise: float = 0.0506
     """Belief noise per turn, in log-odds."""
-    min_edge: float = 2.07
+    min_edge: float = 2.22
     """Smallest edge worth acting on, in cents."""
-    patience: float = 0.75
+    patience: float = 0.902
     """Chance of posting a resting order instead of waiting."""
-    kelly_frac: float = 0.325
+    kelly_frac: float = 0.274
     """Fraction of the full Kelly bet placed."""
     g: float = 0.8
     """Probability weighting: 1 is none, below 1 overweights longshots (lab estimates)."""

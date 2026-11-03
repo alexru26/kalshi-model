@@ -130,7 +130,7 @@ def test_pinning_one_trait_leaves_the_others_drawn_unchanged():
 
 def test_pinned_informedness_feeds_the_cash_link():
     # Cash rises with n_clues, so the agents pinned to many clues hold more of it.
-    config = Config(n_agents=200, cash_rho=0.95)
+    config = Config(n_agents=200, cash_sigma=2.0, cash_rho=0.95)
     pins = {"n_clues": [50] * 100 + [0] * 100}
     traits = draw_traits(config, make_streams(0)["traits"], pins)
     assert traits.n_clues.tolist() == pins["n_clues"]

@@ -61,7 +61,7 @@ Python 3.12 + Mesa 3.x (an agent-based modeling library). Code is in `src/kalshi
 - **Contract:** pays 100c on YES, 0 on NO; integer prices 1 to 99c. All money is integer cents.
 - **One YES book:** "buy NO at x" is treated as "sell YES at 100 - x". Positions are signed YES counts (negative = holding NO). Everything is fully collateralized: a resting order reserves its full cost plus worst-case fee, so no account can go negative.
 - **CLOB:** price-time priority (best price first, then earliest), partial fills, free cancels. An order that would trade with its owner's own resting order cancels that resting order instead.
-- **Market maker (CLOB only):** quotes 10 contracts on each side around a moving price estimate, cancels and requotes every step, shifts quotes to shed inventory, and widens its spread after losing to informed traders (Glosten & Milgrom 1985; Avellaneda & Stoikov 2008). Its quotes are post-only (never trade on arrival, so it is always the maker), its inventory is capped at 200 contracts, and it obeys the same collateral rules as agents.
+- **Market maker (CLOB only):** quotes 36 contracts on each side around a moving price estimate, cancels and requotes every step, shifts quotes to shed inventory, and widens its spread after losing to informed traders (Glosten & Milgrom 1985; Avellaneda & Stoikov 2008). Its quotes are post-only (never trade on arrival, so it is always the maker), its inventory is capped at 200 contracts, and it obeys the same collateral rules as agents.
 - **Kalshi fees:** taker fee as in Section 1, maker fee 0, cancels free. Rounding is per order: an order filled in pieces pays what one fill of the same total would (as Kalshi's fee accumulator does). The fee hits small orders on cheap contracts hardest: one contract at 5c pays 1c, 20% of its cost.
 
 ### 2.2 Agents
@@ -99,15 +99,15 @@ Every other trait is one value shared by all agents, since each works through it
 | Trait | Controls | Value |
 |---|---|---|
 | `w_hearsay` | weight on fakes heard from neighbors | 0.39 (no data anchor) |
-| `market_trust` | how many clues the agent thinks the price is worth | 49 |
+| `market_trust` | how many clues the agent thinks the price is worth | 35.3 |
 | `w_depth` | log-odds nudge from book imbalance | 0.1 (no data anchor) |
-| `noise` | belief error per turn (log-odds) | 0.033 |
-| `min_edge` | smallest edge (cents) worth acting on | 2.07c |
-| `patience` | chance of posting a resting order instead of waiting | 0.75 |
-| `kelly_frac` | fraction of the Kelly bet placed | 0.325 |
+| `noise` | belief error per turn (log-odds) | 0.0506 |
+| `min_edge` | smallest edge (cents) worth acting on | 2.22c |
+| `patience` | chance of posting a resting order instead of waiting | 0.902 |
+| `kelly_frac` | fraction of the Kelly bet placed | 0.274 |
 | `g` | probability weighting (1 = none, below 1 = overweights longshots) | 0.8, from lab estimates (Tversky & Kahneman 1992; Gonzalez & Wu 1999) |
 
-These values are the population means of the Step 8b trait distributions, pending recalibration (Step 8c). Any trait can still be pinned per agent in a custom configuration.
+The calibrated values (all but `w_hearsay`, `w_depth`, and `g`) come from the Step 8c calibration. Any trait can still be pinned per agent in a custom configuration.
 
 **How values are set (calibration).** The cash distribution and its link, the single trait values (except `g`, `w_hearsay`, and `w_depth`), and the market maker's size and spread are calibrated once with **pattern-oriented modeling** (Grimm et al. 2005): search for settings under which the Kalshi default reproduces several real patterns at once, then freeze them for all experiments. Real targets come from Kalshi's public API. The patterns:
 
@@ -218,7 +218,7 @@ Market mechanics (`fees.py`, `orderbook.py`, and `lmsr.py` for the legacy AMM) a
     - The price ignored news (weighting a news clue at 0.21 of its value versus 0.84 for a private clue), because news reached most agents secondhand as hearsay, which the cash-rich informed discount. Fix: true news counts as own evidence; only fakes are hearsay.
 
     Then recalibrate with patterns 5 and 6 required and `cash_rho`, `noise_delta`, and wider `market_trust` and `noise_scale` ranges in the search, and rerun E1 and E2 on the same seeds. The final search accepted 101 of 1,500 candidates; on 480 fresh seeds the frozen setting's slope is 1.10 to 1.18, and the informed earn on three of four seed sets (+$66 per agent pooled). `PREDICTIONS.md` stays unchanged (its predictions concern mechanisms); `RESULTS.md` keeps a short record of the first model's results and why the model changed. *Done when* the frozen default passes every pattern on fresh seeds and `RESULTS.md` reports each prediction for the revised model.
-8c. **Simplify the traits** (in progress). Only informedness and cash vary across agents; every other trait is one value (Section 2.2), so the report justifies two distributions instead of eleven, and the links of `w_hearsay`, `noise`, and `patience` to informedness are gone. The single values start at the means of the Step 8b distributions. The `noise` link was added in Step 8b so the informed would have noise traders to profit from. Before recalibration, on 48 fresh seeds, every pattern passes except informed-earn: the best-informed tenth lose $91 per agent, and agents with no clues about break even. Then recalibrate over the new search space (`calibration.SPACE`) and rerun E1 to E3. *Done when* the frozen default passes every pattern on fresh seeds and `RESULTS.md` reports each prediction for the simplified model.
+8c. **Simplify the traits** (calibrated; E1 to E3 not yet rerun). Only informedness and cash vary across agents; every other trait is one value (Section 2.2), so the report justifies two distributions instead of eleven, and the links of `w_hearsay`, `noise`, and `patience` to informedness are gone. The single values start at the means of the Step 8b distributions. The `noise` link was added in Step 8b so the informed would have noise traders to profit from. Before recalibration, on 48 fresh seeds, every pattern passes except informed-earn: the best-informed tenth lose $91 per agent, and agents with no clues about break even. The recalibration over the new search space (`calibration.SPACE`, 1,500 candidates on 8 seeds) accepted 102. The frozen setting passes every pattern on four fresh sets of 120 seeds (480 in all): the informed tenth earn $86 to $103 per agent in every set while agents with no clues lose $14 to $16, and the calibration slope is 1.27 to 1.33, more underconfident than Step 8b's 1.10 to 1.18 but inside the 0.8-1.4 band. Next, rerun E1 to E3. *Done when* the frozen default passes every pattern on fresh seeds and `RESULTS.md` reports each prediction for the simplified model.
 9. **Manipulator; run E3** (done). Pump-and-dump and spoofing layers and the honest twin (`src/kalshi_model/manipulator.py`); predictions first, then `experiments/e3_manipulation.py` writes `results/e3_manipulation.csv`. *Done when* invariants hold with the manipulator present and `RESULTS.md` reports each E3 prediction against the data.
 10. **Kalshi calibration check** (Section 3), including the `g = 1` rerun.
 11. **Robustness.** Rerun the key paired comparisons of E1 to E3 on the spread-out set of accepted calibrations from Step 7 and report how often each effect's sign holds (appendix figure).
