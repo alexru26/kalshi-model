@@ -92,7 +92,7 @@ Agents have no type labels. Each agent is a vector of traits set at setup, and b
 | `n_clues` | private clues held (informedness) | negative binomial (mean 20, capped at 60): about 40% hold none, the top 10% hold most of the pool |
 | `cash` | starting budget | lognormal, rank-correlated with `n_clues` (Gaussian copula, `cash_rho`) |
 
-Informedness must vary, since informed traders need uninformed ones to trade with. Cash varies because wealth is heavy-tailed, which sets the spread of trade sizes. It is linked to informedness because traders with better beliefs grow wealth over many markets, so the informed come to hold more of the money (Blume & Easley 2006; Kets et al. 2014). Only who holds the cash changes, not its overall distribution. Without this link the price follows the few richest agents (the top tenth hold about three quarters of the cash), who are mostly uninformed. The link is drawn after the other traits, so they are the same on each seed with or without it.
+Informedness must vary, since informed traders need uninformed ones to trade with. Cash varies because wealth is heavy-tailed, which sets the spread of trade sizes. It is linked to informedness because traders with better beliefs grow wealth over many markets, so the informed come to hold more of the money (Blume & Easley 2006; Kets et al. 2014). Only who holds the cash changes, not its overall distribution. Without this link the price follows the few richest agents (the top tenth hold about half the cash), who are mostly uninformed. The link is drawn after the other traits, so they are the same on each seed with or without it.
 
 Every other trait is one value shared by all agents, since each works through its level, not its spread:
 
