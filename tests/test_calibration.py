@@ -169,13 +169,16 @@ def test_dimensions_map_the_unit_interval_onto_their_range():
     assert isinstance(whole.value(0.3), int) and 3 <= whole.value(0.3) <= 100
 
 
-def test_overrides_are_valid_config_fields_and_kelly_mean_maps_to_beta():
+def test_overrides_are_valid_config_fields_within_their_ranges():
     for u in latin_hypercube(20, len(SPACE), np.random.default_rng(2)):
-        overrides = config_overrides(u)
-        config = replace(Config(), **overrides)
-        mean = config.kelly_alpha / (config.kelly_alpha + config.kelly_beta)
-        assert 0.05 <= mean <= 0.5
-        assert config.kelly_alpha + config.kelly_beta == pytest.approx(10.0)
+        config = replace(Config(), **config_overrides(u))
+        for d in SPACE:
+            assert d.low <= getattr(config, d.name) <= d.high, d.name
+
+
+def test_the_frozen_defaults_lie_inside_the_searched_ranges():
+    for d in SPACE:
+        assert d.low <= getattr(Config(), d.name) <= d.high, d.name
 
 
 def test_central_order_starts_at_the_point_nearest_the_median():

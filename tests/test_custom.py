@@ -128,12 +128,13 @@ def test_pinning_one_trait_leaves_the_others_drawn_unchanged():
         assert np.array_equal(getattr(pinned, name), getattr(base, name)), name
 
 
-def test_pinned_informedness_feeds_the_linked_traits():
-    # Patience rises with n_clues, so the agent pinned to many clues is the more patient.
-    config = build_custom({**TINY, "patience_sigma": 0.0}).config
-    traits = draw_traits(config, make_streams(0)["traits"], {"n_clues": [200, 0]})
-    assert traits.n_clues.tolist() == [200, 0]
-    assert traits.patience[0] > 0.99 > traits.patience[1]
+def test_pinned_informedness_feeds_the_cash_link():
+    # Cash rises with n_clues, so the agents pinned to many clues hold more of it.
+    config = Config(n_agents=200, cash_sigma=2.0, cash_rho=0.95)
+    pins = {"n_clues": [50] * 100 + [0] * 100}
+    traits = draw_traits(config, make_streams(0)["traits"], pins)
+    assert traits.n_clues.tolist() == pins["n_clues"]
+    assert np.median(traits.cash[:100]) > 10 * np.median(traits.cash[100:])
 
 
 def test_traits_and_fixed_traits_are_exclusive():

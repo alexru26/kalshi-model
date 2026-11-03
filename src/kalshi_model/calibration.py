@@ -181,32 +181,25 @@ class Dimension:
 SPACE = (
     Dimension("cash_median", 20_000, 1_000_000, log=True, integer=True),
     Dimension("cash_sigma", 0.5, 2.5),
-    Dimension("kelly_mean", 0.05, 0.5),
-    Dimension("noise_scale", 0.03, 1.5, log=True),
-    Dimension("noise_delta", 0.0, 0.12),
-    Dimension("min_edge_scale", 0.3, 5.0, log=True),
-    Dimension("patience_mu", -3.0, 2.0),
-    Dimension("market_trust_scale", 1.0, 60.0, log=True),
     Dimension("cash_rho", 0.0, 0.95),
-    Dimension("activity_sigma", 0.3, 1.5),
+    Dimension("kelly_frac", 0.05, 0.5),
+    Dimension("noise", 0.01, 1.0, log=True),
+    Dimension("min_edge", 0.25, 4.0, log=True),
+    Dimension("patience", 0.05, 0.95),
+    Dimension("market_trust", 2.0, 120.0, log=True),
     Dimension("mm_size", 3, 100, log=True, integer=True),
     Dimension("mm_half_spread", 0.5, 4.0),
 )
-"""The calibrated settings and their prior ranges (Step 8b widened `market_trust_scale`
-and `noise_scale` and added `cash_rho` and `noise_delta`). Kelly fractions are Beta(10m, 10(1-m))
-for a searched mean m. Not searched: g (lab estimates), informedness (Step 3), and
-w_hearsay and w_depth (no data anchor)."""
-KELLY_CONCENTRATION = 10.0
+"""The calibrated settings and their prior ranges. Since Step 8c the cash distribution
+and its link to informedness are the only searched trait distributions; the other
+searched traits are single population values, with ranges covering what the Step 8b
+distributions spanned on average. Not searched: g (lab estimates), informedness
+(Step 3), and w_hearsay and w_depth (no data anchor)."""
 
 
 def config_overrides(u: np.ndarray) -> dict:
     """Config fields for one point u in the unit cube (one coordinate per SPACE entry)."""
-    values = {d.name: d.value(float(x)) for d, x in zip(SPACE, u, strict=True)}
-    kelly_mean = values.pop("kelly_mean")
-    return values | {
-        "kelly_alpha": KELLY_CONCENTRATION * kelly_mean,
-        "kelly_beta": KELLY_CONCENTRATION * (1 - kelly_mean),
-    }
+    return {d.name: d.value(float(x)) for d, x in zip(SPACE, u, strict=True)}
 
 
 def latin_hypercube(n: int, dims: int, rng: np.random.Generator) -> np.ndarray:

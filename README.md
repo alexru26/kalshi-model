@@ -32,7 +32,7 @@ uv run python experiments/plot_run.py 20000 --disinfo 0.2 --network watts_stroga
 
 ### Custom configurations
 
-To explore small or simple systems, write a TOML file and pass it with `--config`. It may set `market` (`kalshi`, `clob`, or the legacy `amm`, which no experiment uses), any `Config` field (`src/kalshi_model/config.py`), and a `[traits]` table that pins agent traits to exact values, either one value for every agent or a list with one value per agent. Unpinned traits are drawn as usual. `n_clues_total = 0` removes all information, `mean_degree = 0` removes the network, and `mm_size = 0` turns off the market maker. `configs/template.toml` lists every setting at its default, with a short note on each; copy it as a starting point. `configs/level_*.toml` are small demos of the model, and `configs/test_*.toml` are fixtures used by the tests:
+To explore small or simple systems, write a TOML file and pass it with `--config`. It may set `market` (`kalshi`, `clob`, or the legacy `amm`, which no experiment uses), any `Config` field (`src/kalshi_model/config.py`), and a `[traits]` table that pins agent traits to exact values, either one value for every agent or a list with one value per agent. Unpinned traits keep their defaults (informedness and cash drawn, the rest one value for all). `n_clues_total = 0` removes all information, `mean_degree = 0` removes the network, and `mm_size = 0` turns off the market maker. `configs/template.toml` lists every setting at its default, with a short note on each; copy it as a starting point. `configs/level_*.toml` are small demos of the model, and `configs/test_*.toml` are fixtures used by the tests:
 
 ```sh
 uv run python experiments/plot_run.py --config configs/level_1.toml

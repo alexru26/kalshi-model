@@ -96,7 +96,7 @@ We want to **understand**, not predict, how three things change how fast and how
    - Otherwise **wait**.
 
 ### Market maker
-No beliefs or clues. Each step, before traders act, it cancels its quotes and posts 10 contracts on each side around a moving price estimate (an exponential average of trade prices, starting at 50c). It:
+No beliefs or clues. Each step, before traders act, it cancels its quotes and posts 36 contracts on each side around a moving price estimate (an exponential average of trade prices, starting at 50c). It:
 - shifts both quotes against its inventory to shed it,
 - widens its spread after losing money to better-informed traders, then narrows again over time,
 - never trades on arrival (post-only, so it is always the maker and pays no fees),
@@ -151,23 +151,27 @@ Changes from Level 0:
 This is the model used for the experiments. Changes from Level 1:
 
 ### Agents (300 traders)
-**Heterogeneous.** Traders have no type labels. Each is a vector of traits drawn at setup, and behavior follows from the traits ("expert" and "casual bettor" are regions of trait space).
+**Heterogeneous in informedness and cash only.** Traders have no type labels. Each is a vector of traits set at setup, and behavior follows from the traits ("expert" and "casual bettor" are regions of trait space). Two traits vary across traders:
 
 | Trait | Controls | Distribution |
 |---|---|---|
 | `n_clues` | private clues held | negative binomial, mean 20, cap 60: about 40% hold none, the top 10% hold most |
-| `w_hearsay` | weight on rumors heard from neighbors | logit-normal, mean falls with `n_clues` |
-| `market_trust` | how many clues the price is worth | Gamma |
-| `w_depth` | belief nudge from order book imbalance | Beta, small |
-| `noise` | belief error per turn | half-normal, shrinking with `n_clues` |
-| `min_edge` | smallest edge worth acting on | half-normal |
-| `patience` | chance of posting instead of waiting | logit-normal, rising with `n_clues` |
-| `kelly_frac` | fraction of Kelly bet | Beta, well below 1 |
-| `g` | probability weighting | Beta on 0.6 to 1 (lab estimates) |
 | `cash` | starting budget | lognormal, rank-correlated with `n_clues` |
-| `activity` | how often the trader gets a turn | lognormal weights |
 
-Better-informed traders are more patient, richer, less noisy, and trust rumors less. Uninformed traders are needed: without them the informed have nobody to trade with. Most distributions and the market maker settings are **calibrated** so the default model reproduces six real Kalshi patterns at once (trade sizes, spreads, rarely empty book, informed traders earn more, price calibration, price beats the average trader). Exact values are in `src/kalshi_model/config.py`.
+Every other trait is one value shared by all traders:
+
+| Trait | Controls | Value |
+|---|---|---|
+| `w_hearsay` | weight on rumors heard from neighbors | 0.39 |
+| `market_trust` | how many clues the price is worth | 35.3 |
+| `w_depth` | belief nudge from order book imbalance | 0.1 |
+| `noise` | belief error per turn | 0.0506 |
+| `min_edge` | smallest edge worth acting on | 2.22c |
+| `patience` | chance of posting instead of waiting | 0.902 |
+| `kelly_frac` | fraction of Kelly bet | 0.274 |
+| `g` | probability weighting | 0.8 (lab estimates) |
+
+Better-informed traders are richer. Uninformed traders are needed: without them the informed have nobody to trade with. The cash distribution, most single trait values, and the market maker settings are **calibrated** so the default model reproduces six real Kalshi patterns at once (trade sizes, spreads, rarely empty book, informed traders earn more, price calibration, price beats the average trader). Exact values are in `src/kalshi_model/config.py`.
 
 **Belief rule** gains two terms:
 ```
@@ -176,7 +180,7 @@ w_market = market_trust / (market_trust + n_own + w_hearsay x n_heard)
 ```
 `L_heard` is the log-odds of fake clues heard from neighbors (see below). `imbalance` = (bid depth - ask depth) / total depth within 2c of the best prices.
 
-**Turns.** Each step, 20 traders are drawn without replacement, weighted by `activity`.
+**Turns.** Each step, 20 traders are drawn without replacement, each equally likely.
 
 ### World and information
 - `M = 80` clues, `q = 0.53`. The first 60 are private; each trader draws `n_clues` of them, so each private clue is held by about 65 traders. The other 20 are news, each seeded to 5 random traders.
@@ -199,7 +203,7 @@ w_market = market_trust / (market_trust + n_own + w_hearsay x n_heard)
 - **Kalshi (default):** the same, plus Kalshi taker fees.
 
 ### Manipulator (Experiment 3 only)
-One extra agent with median traits, 2 private clues, and 5% of all traders' cash. It is not on the network, trades every step, and from step 1000 adds a manipulation layer on top of the honest rules:
+One extra agent with the population's trait values, 2 private clues, and 5% of all traders' cash. It is not on the network, trades every step, and from step 1000 adds a manipulation layer on top of the honest rules:
 - **Pump and dump:** buy until the price is 5c above where it started (at most 100 steps), hold 50 steps, then sell what it bought.
 - **Spoofing:** for 500 steps, keep a huge fake bid (20,000 contracts) 2c behind the best bid to inflate the imbalance traders read, while selling real contracts at the best ask.
 
@@ -207,12 +211,12 @@ Its effect is measured against an **honest twin**: the same agent, same seed, tr
 
 ### One run
 ```
-setup: draw Y and clues; build network; draw traits; place traders on nodes; deal private clues
+setup: draw Y and clues; build network; set traits; place traders on nodes; deal private clues
 for t in 1..2000:
     release scheduled news and fakes to seed traders
     spread clues one step
     market maker requotes (order book rules only)
-    20 activity-weighted traders (plus the manipulator, if present) take turns
+    20 randomly drawn traders (plus the manipulator, if present) take turns
     record price, P*, volume, spread, depth
 settle at 100c per winning contract; compute profit for everyone
 ```

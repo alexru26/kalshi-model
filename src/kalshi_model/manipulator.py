@@ -1,15 +1,15 @@
 """The manipulator (PLAN.md Section 2.3): an agent with the honest rules plus a
 manipulation layer.
 
-Its traits are set by the experimenter, not drawn: each is the median of the
-population's distribution at the manipulator's informedness (`manip_n_clues`, the
-population median), except that it ignores book imbalance (`w_depth = 0`, since it
-knows which of the depth is its own) and its cash is `manip_cash_share` of all agents'
-starting cash on the seed. It holds `manip_n_clues` private clues, sits off the social
-network (it learns news only through the price), pays fees like any agent, and trades
-every step, in a random slot among the agents' turns. All its draws come from the
-"manipulator" stream, so the world, the population, and the agents' turns are the same
-with or without it, and its own draws are the same in every E3 configuration.
+Its traits are set by the experimenter, not drawn: each is the population's single value
+(`Config`), except that it ignores book imbalance (`w_depth = 0`, since it knows which
+of the depth is its own), its informedness is `manip_n_clues` (the population median),
+and its cash is `manip_cash_share` of all agents' starting cash on the seed. It holds
+`manip_n_clues` private clues, sits off the social network (it learns news only through
+the price), pays fees like any agent, and trades every step, in a random slot among the
+agents' turns. All its draws come from the "manipulator" stream, so the world, the
+population, and the agents' turns are the same with or without it, and its own draws are
+the same in every E3 configuration.
 
 Strategies (`Config.manipulator`):
 
@@ -30,7 +30,6 @@ Strategies (`Config.manipulator`):
 from __future__ import annotations
 
 import math
-from statistics import NormalDist
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -38,46 +37,31 @@ import numpy as np
 from kalshi_model.agents import Trader
 from kalshi_model.config import Config
 from kalshi_model.orderbook import BUY, SELL, OrderBook
-from kalshi_model.world import sigmoid
 
 if TYPE_CHECKING:
     from kalshi_model.model import MarketModel
 
 OWNER = "manipulator"
 """The manipulator's order-book account (agents' accounts are their integer indices)."""
-HALF_NORMAL_MEDIAN = NormalDist().inv_cdf(0.75)
 
 HONEST, PUMP, HOLD, DUMP, SPOOF = "honest", "pump", "hold", "dump", "spoof"
 LAYER_PHASES = (PUMP, HOLD, DUMP, SPOOF)
 """Phases in which the manipulation layer, not the honest rules, sets the turn."""
 
 
-def _beta_median(a: float, b: float) -> float:
-    """Closed-form approximation to a Beta median (exact when a == b; within about 1%
-    for a, b >= 1)."""
-    return (a - 1 / 3) / (a + b - 2 / 3)
-
-
-def _gamma_median(shape: float, scale: float) -> float:
-    """Wilson-Hilferty approximation to a Gamma median (within 0.5% for shape >= 1)."""
-    return shape * scale * (1 - 1 / (9 * shape)) ** 3
-
-
 def manipulator_traits(config: Config, cash: int) -> dict[str, float]:
-    """The manipulator's traits: each distribution's median at `manip_n_clues`,
-    `w_depth = 0`, and the given cash (Section 2.2's distributions, `traits.py`)."""
-    n = config.manip_n_clues
+    """The manipulator's traits: the population's single values (Section 2.2,
+    `traits.py`), `manip_n_clues`, `w_depth = 0`, and the given cash."""
     return {
-        "n_clues": n,
-        "w_hearsay": sigmoid(config.hearsay_mu - config.hearsay_gamma * n),
-        "market_trust": _gamma_median(config.market_trust_shape, config.market_trust_scale),
+        "n_clues": config.manip_n_clues,
+        "w_hearsay": config.w_hearsay,
+        "market_trust": config.market_trust,
         "w_depth": 0.0,
-        "noise": HALF_NORMAL_MEDIAN * config.noise_scale * math.exp(-config.noise_delta * n),
-        "min_edge": HALF_NORMAL_MEDIAN * config.min_edge_scale,
-        "patience": sigmoid(config.patience_mu + config.patience_delta * n),
-        "kelly_frac": _beta_median(config.kelly_alpha, config.kelly_beta),
-        "g": config.g_low
-        + (config.g_high - config.g_low) * _beta_median(config.g_alpha, config.g_beta),
+        "noise": config.noise,
+        "min_edge": config.min_edge,
+        "patience": config.patience,
+        "kelly_frac": config.kelly_frac,
+        "g": config.g,
         "cash": cash,
         "activity": math.inf,
     }

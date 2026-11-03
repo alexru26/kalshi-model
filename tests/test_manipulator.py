@@ -17,6 +17,8 @@ from kalshi_model.manipulator import (
 from kalshi_model.metrics import COUNTERPARTIES, manipulation_metrics, run_metrics
 from kalshi_model.model import MarketModel
 from kalshi_model.orderbook import BUY, SELL
+from kalshi_model.rng import make_streams
+from kalshi_model.traits import draw_traits
 
 SHORT = Config(
     n_steps=400,
@@ -68,22 +70,16 @@ def test_config_rejects_bad_manipulator_settings(overrides):
         Config(**overrides)
 
 
-def test_manipulator_traits_are_the_population_medians_at_its_informedness():
+def test_manipulator_traits_are_the_population_values_at_its_informedness():
     config = Config()
     traits = manipulator_traits(config, cash=123)
-    sample = np.random.default_rng(0)
-    n = 400_000
+    population = draw_traits(config, make_streams(0)["traits"])
     assert traits["n_clues"] == config.manip_n_clues
     assert traits["w_depth"] == 0.0  # it knows which of the book's depth is its own
     assert traits["cash"] == 123
-    assert traits["g"] == pytest.approx(0.8)  # Beta(2, 2) is symmetric
-    medians = {
-        "market_trust": sample.gamma(config.market_trust_shape, config.market_trust_scale, n),
-        "kelly_frac": sample.beta(config.kelly_alpha, config.kelly_beta, n),
-        "min_edge": np.abs(sample.normal(0, config.min_edge_scale, n)),
-    }
-    for name, draws in medians.items():
-        assert traits[name] == pytest.approx(np.median(draws), rel=0.01), name
+    assert traits["activity"] == math.inf  # a turn every step
+    for name in ("w_hearsay", "market_trust", "noise", "min_edge", "patience", "kelly_frac", "g"):
+        assert np.all(getattr(population, name) == traits[name]), name
 
 
 def test_manipulator_gets_its_cash_share_and_clues_and_counts_in_p_star(runs):

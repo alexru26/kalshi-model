@@ -25,35 +25,44 @@ def test_one_value_per_agent_for_every_trait():
         assert getattr(traits, name).shape == (300,)
 
 
-def test_bounded_traits_stay_in_bounds(big):
-    for name in ("w_hearsay", "w_depth", "patience", "kelly_frac"):
-        values = getattr(big, name)
-        assert np.all((values > 0) & (values < 1)), name
+SINGLE_VALUED = (
+    "w_hearsay",
+    "market_trust",
+    "w_depth",
+    "noise",
+    "min_edge",
+    "patience",
+    "kelly_frac",
+    "g",
+)
+"""Traits every agent shares, each set by the Config field of the same name."""
+
+
+def test_only_informedness_and_cash_vary_across_agents(big):
+    config = Config()
+    for name in SINGLE_VALUED:
+        assert np.all(getattr(big, name) == getattr(config, name)), name
+    assert np.all(big.activity == 1.0)  # equal chances of a turn
+    assert len(np.unique(big.n_clues)) > 30
+    assert len(np.unique(big.cash)) > 10_000
+
+
+def test_single_values_follow_the_config():
+    config = replace(Config(), w_hearsay=0.2, market_trust=7.0, noise=0.4, g=1.0)
+    traits = draw(config)
+    assert np.all(traits.w_hearsay == 0.2)
+    assert np.all(traits.market_trust == 7.0)
+    assert np.all(traits.noise == 0.4)
+    assert np.all(traits.g == 1.0)
+
+
+def test_drawn_traits_follow_their_distributions(big):
+    config = Config()
     assert np.all(big.n_clues >= 0)
-    assert np.all(big.market_trust > 0)
-    assert np.all(big.noise >= 0)
-    assert np.all(big.min_edge >= 0)
-    assert np.all((big.g >= 0.6) & (big.g <= 1.0))
+    assert big.n_clues.mean() == pytest.approx(config.n_clues_mean, rel=0.05)
     assert np.all(big.cash >= 1)
     assert big.cash.dtype == np.int64
-    assert np.all(big.activity > 0)
-
-
-def test_trait_means_follow_the_config(big):
-    config = Config()
-    assert big.n_clues.mean() == pytest.approx(config.n_clues_mean, rel=0.05)
-    assert big.market_trust.mean() == pytest.approx(
-        config.market_trust_shape * config.market_trust_scale, rel=0.03
-    )
-    kelly_mean = config.kelly_alpha / (config.kelly_alpha + config.kelly_beta)
-    assert big.kelly_frac.mean() == pytest.approx(kelly_mean, abs=0.005)
-    assert big.w_depth.mean() == pytest.approx(0.1, abs=0.005)
-    assert big.g.mean() == pytest.approx(0.8, abs=0.005)
     assert np.median(big.cash) == pytest.approx(config.cash_median, rel=0.05)
-    # Half-normal mean is scale x sqrt(2 / pi).
-    assert big.min_edge.mean() == pytest.approx(
-        config.min_edge_scale * np.sqrt(2 / np.pi), rel=0.03
-    )
 
 
 def test_informedness_is_heavy_tailed(big):
@@ -62,39 +71,20 @@ def test_informedness_is_heavy_tailed(big):
     assert np.quantile(big.n_clues, 0.9) >= 40
 
 
-def test_hearsay_falls_and_patience_rises_with_informedness(big):
-    informed = big.n_clues >= 30
-    uninformed = big.n_clues == 0
-    assert big.w_hearsay[informed].mean() < big.w_hearsay[uninformed].mean()
-    assert big.patience[informed].mean() > big.patience[uninformed].mean()
-
-
-def test_without_the_links_traits_are_independent_of_informedness(big):
-    unlinked = draw(Config(n_agents=20_000, turns_per_step=1, hearsay_gamma=0.0), seed=1)
-    informed = unlinked.n_clues >= 30
-    assert unlinked.w_hearsay[informed].mean() == pytest.approx(
-        unlinked.w_hearsay[~informed].mean(), abs=0.02
-    )
-
-
 def test_same_seed_gives_same_population():
     first, second = draw(seed=4), draw(seed=4)
     for name in TRAIT_NAMES:
         assert np.array_equal(getattr(first, name), getattr(second, name))
 
 
-def test_changing_one_trait_distribution_leaves_the_others_unchanged():
+def test_changing_one_trait_setting_leaves_the_others_unchanged():
     base = draw(seed=4)
-    noisier = draw(replace(Config(), noise_scale=0.5, kelly_alpha=3.0), seed=4)
-    assert not np.array_equal(base.noise, noisier.noise)
+    changed = draw(replace(Config(), noise=0.5, cash_sigma=1.0), seed=4)
+    assert not np.array_equal(base.noise, changed.noise)
+    assert not np.array_equal(base.cash, changed.cash)
     for name in TRAIT_NAMES:
-        if name not in ("noise", "kelly_frac"):
-            assert np.array_equal(getattr(base, name), getattr(noisier, name)), name
-
-
-def test_g_equal_to_one_for_everyone():
-    traits = draw(replace(Config(), g_low=1.0, g_high=1.0))
-    assert np.all(traits.g == 1.0)
+        if name not in ("noise", "cash"):
+            assert np.array_equal(getattr(base, name), getattr(changed, name)), name
 
 
 def test_traits_are_read_only():
@@ -142,15 +132,3 @@ def test_cash_link_only_reassigns_cash_and_leaves_other_traits_unchanged():
 def test_cash_rho_must_lie_strictly_inside_minus_one_to_one(rho):
     with pytest.raises(ValueError):
         Config(cash_rho=rho)
-
-
-def test_noise_falls_with_informedness_by_noise_delta():
-    config = Config(n_agents=20_000, turns_per_step=1, noise_delta=0.0)
-    flat = draw(config, seed=2)
-    linked = draw(replace(config, noise_delta=0.06), seed=2)
-    assert np.allclose(linked.noise, flat.noise * np.exp(-0.06 * flat.n_clues))
-    none, many = linked.n_clues == 0, linked.n_clues >= 30
-    assert linked.noise[many].mean() < 0.2 * linked.noise[none].mean()
-    for name in TRAIT_NAMES:
-        if name != "noise":
-            assert np.array_equal(getattr(linked, name), getattr(flat, name))

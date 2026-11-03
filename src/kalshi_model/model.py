@@ -1,9 +1,10 @@
 """The Mesa model: one market over one run (PLAN.md Section 2.5).
 
 Each step releases scheduled news and fake clues to seed agents, spreads clues one step
-along the social network, lets the CLOB's market maker requote, then gives an
-activity-weighted sample of agents a turn, then records the step. In E3 the manipulator
-(or its honest twin) also takes a turn every step, in a random slot among the agents'.
+along the social network, lets the CLOB's market maker requote, then gives a
+sample of agents (weighted by `activity`, equal by default) a turn, then records the
+step. In E3 the manipulator (or its honest twin) also takes a turn every step, in a
+random slot among the agents'.
 After the last step the market settles. Under the AMM (a legacy feature, unused by the
 experiments) agents trade with the LMSR; under
 the CLOB they trade in the order book, whose accounts hold every trader's cash and
