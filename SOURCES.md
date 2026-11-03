@@ -67,16 +67,12 @@ Each entry has a one-sentence summary of why it matters for this project. Entrie
 ## Information spread
 
 - Daley, D. J., & Kendall, D. G. (1964). Epidemics and rumours. *Nature*, 204. Classic rumor model with spreaders and stiflers.
-- Erdos, P., & Renyi, A. (1959). On random graphs I. *Publicationes Mathematicae*, 6. † Random graphs; our null network.
-- Watts, D., & Strogatz, S. (1998). Collective dynamics of small-world networks. *Nature*, 393. Clustered networks with short paths.
-- Barabasi, A.-L., & Albert, R. (1999). Emergence of scaling in random networks. *Science*, 286. Scale-free networks with hubs.
-- Holme, P., & Kim, B. J. (2002). Growing scale-free networks with tunable clustering. *Physical Review E*, 65(2). † Networks with both hubs and clustering; our default.
-- Holland, P., Laskey, K., & Leinhardt, S. (1983). Stochastic blockmodels: First steps. *Social Networks*, 5(2). † Networks with built-in communities; our echo-chamber network.
+- Barabasi, A.-L., & Albert, R. (1999). Emergence of scaling in random networks. *Science*, 286. Preferential attachment makes scale-free networks with hubs; Holme-Kim builds on it.
+- Holme, P., & Kim, B. J. (2002). Growing scale-free networks with tunable clustering. *Physical Review E*, 65(2). † Networks with both hubs and clustering; our social network.
 - Newman, M. (2003). The structure and function of complex networks. *SIAM Review*, 45(2). † Real social networks combine hubs, clustering, and communities.
 - Ugander, J., Karrer, B., Backstrom, L., & Marlow, C. (2011). The anatomy of the Facebook social graph. arXiv:1111.4503. † Measured structure of a real large social network.
 - Centola, D. (2010). The spread of behavior in an online social network experiment. *Science*, 329(5996). † Clustered networks spread behavior better than random ones.
 - Del Vicario, M., et al. (2016). The spreading of misinformation online. *PNAS*, 113(3). † Misinformation spreads inside like-minded communities.
-- Cinelli, M., et al. (2021). The echo chamber effect on social media. *PNAS*, 118(9). † Echo chambers across platforms.
 - Vosoughi, S., Roy, D., & Aral, S. (2018). The spread of true and false news online. *Science*, 359(6380). † False news spreads faster than true news, mostly through people rather than bots.
 - Wardle, C., & Derakhshan, H. (2017). Information Disorder: Toward an interdisciplinary framework. Council of Europe report DGI(2017)09. † Separates misinformation (false, no intent) from disinformation (false, deliberate).
 - Ozsoylev, H., Walden, J., Yavuz, M. D., & Bildik, R. (2014). Investor networks in the stock market. *Review of Financial Studies*, 27(5). Central investors in an empirical information network trade earlier and earn more.

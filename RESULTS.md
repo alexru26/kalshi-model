@@ -40,6 +40,8 @@ A news clue moves `P*` by 2.43c on average, so both markets price news in full o
 
 ## E2. Information spread
 
+These results come from the Step 8b design, which compared five networks. E2 now uses only Holme-Kim and adds ratio 0.5 (`PREDICTIONS.md`, Amendments), so E2.1, E2.2, and E2.4 are withdrawn and the network rows below are kept as a record until E2 is rerun.
+
 | Network (ratio 0.1) | Steps to half reach | News half-life (steps) | Distortion (c) | Last quarter (c) | Realized P&L, top - bottom degree quarter ($) |
 |---|---|---|---|---|---|
 | Erdos-Renyi | 24.5 +- 0.4 | 51.8 [47.4, 57.1] | 0.59 +- 0.07 | 1.19 +- 0.17 | +5.9 +- 99.1 |

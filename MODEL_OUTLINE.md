@@ -4,7 +4,7 @@ An agent-based model of one binary prediction market run under Kalshi's rules. W
 
 - **Level 0:** two traders with private clues and a market maker. The smallest model in which a price can pool information.
 - **Level 1:** three traders on a tiny social network that spreads scheduled news.
-- **Level 2:** the full model used for the experiments: 300 traders with varied traits, a realistic social network, disinformation, a fee-free market for comparison, and a manipulator.
+- **Level 2:** the full model used for the experiments: 300 traders with varied traits, a realistic (Holme-Kim) social network, disinformation, a fee-free market for comparison, and a manipulator.
 
 Each level adds to the one before it. Settings not mentioned keep the values of the previous level. Level 0 and Level 1 can be run with `configs/level_0.toml` and `configs/level_1.toml`. `PLAN.md` has the full design and the reasons behind each choice; `SOURCES.md` has the references.
 
@@ -15,7 +15,7 @@ Each level adds to the one before it. Settings not mentioned keep the values of 
 We want to **understand**, not predict, how three things change how fast and how accurately a prediction market's price finds the truth:
 
 1. **Market rules:** an order book with no fees vs. the same order book with Kalshi's fees.
-2. **Information spread:** the shape of the social network that carries news, and how much disinformation it carries.
+2. **Information spread:** how much disinformation the social network that carries news also carries.
 3. **Manipulation:** a well-funded trader who tries to move the price for profit (pump-and-dump or spoofing).
 
 **Stylized facts** the model should be able to speak to:
@@ -134,7 +134,7 @@ Changes from Level 0:
 
 - **3 traders**, still identical (`market_trust = 10`, `noise = 0.05`).
 - **News.** There are now `M = 20` clues. The first 10 are private, dealt as before. The other 10 are **news**, released one at a time at evenly spaced steps (news `j` at step `(j + 1) x T / 11`).
-- **Network.** Traders are the nodes of a triangle (everyone linked to everyone). Space now means *who talks to whom*, not physical location.
+- **Network.** Traders are the nodes of a line: a Holme-Kim network of 3 in which each new trader links to one earlier one, so the middle trader hears from both ends. Space now means *who talks to whom*, not physical location.
 - **Spreading.** At release a news clue is given to 1 random trader. Each step, each trader spreading a clue tells each neighbor with probability `beta = 0.5`. A trader starts passing on a new clue only after its own next trading turn (traders act on news before sharing it). A trader stops retelling a clue once it tells someone who already knew it.
 - **Private clues never spread.** They reach the price only through trading.
 - **Beliefs.** A news clue a trader has learned counts as its own evidence (`L_own` and `n_own` include it). `P*` now includes every private clue held plus all news released so far.
@@ -188,15 +188,7 @@ w_market = market_trust / (market_trust + n_own + w_hearsay x n_heard)
 - **Disinformation source** (a component, not an agent): releases `ratio x 20` fake clues, all pointing against the truth, at evenly spaced steps, seeded and spread like news. Traders cannot tell fakes from news, but true news can be checked at its source, so news counts in full while a fake counts only as hearsay, at weight `w_hearsay`. Fakes are excluded from `P*`.
 
 ### Network
-300 nodes, mean degree 8, one trader per node. Five types:
-
-| Network | Represents |
-|---|---|
-| Erdos-Renyi | random baseline |
-| Watts-Strogatz | friend circles plus a few long links |
-| Barabasi-Albert | influencers (hubs) |
-| Holme-Kim (default) | hubs plus clustering, the most realistic simple social network |
-| Stochastic block model | two echo chambers with 5% of links between |
+300 nodes, mean degree 8, one trader per node, in one Holme-Kim network: preferential attachment gives it hubs (influencers), and closing triangles gives it clustering (friend circles), the two features real social networks share. The network type is fixed, not varied.
 
 ### Market rules
 - **CLOB:** order book plus quoting market maker, no fees.
@@ -231,8 +223,7 @@ Each experiment changes **one variable** around the default (Kalshi rules, Holme
 | Experiment | Variable | Values |
 |---|---|---|
 | E1 Market rules | fees | CLOB (no fees), Kalshi |
-| E2 Information | network type | the 5 networks above, each at disinformation ratio 0 and 0.1 |
-| E2 Information | disinformation ratio | 0, 0.05, 0.1, 0.2 (0, 1, 2, 4 fakes per 20 news clues) |
+| E2 Information | disinformation ratio | 0, 0.05, 0.1, 0.2, 0.5 (0, 1, 2, 4, 10 fakes per 20 news clues) |
 | E3 Manipulation | manipulator | honest twin, pump-and-dump, spoofing |
 
 A validation run also sets `g = 1` for everyone to see whether the favorite-longshot bias comes from the rules or from traders' probability weighting.
@@ -245,7 +236,7 @@ A validation run also sets `g = 1` for everyone to see whether the favorite-long
 | Price move toward each news clue and its half-life | How fast is news priced in? |
 | Volume, spread, depth, empty-book steps | How liquid was the market? |
 | Fees paid and profit, by informedness, network position, maker vs. taker | Who wins and who pays? |
-| Steps for a clue to reach half the traders | How fast does each network spread news? |
+| Steps for a clue to reach half the traders | How fast does the network spread news? |
 | Distortion from fakes (gap from `P*` in the fakes' direction vs. the same seed without fakes) | How far do lies move the price? |
 | Manipulator profit minus twin profit; price distortion and its duration | Does manipulation pay, and does it harm the market? |
 | Calibration curve vs. real Kalshi data | Does the model show the favorite-longshot bias? |

@@ -86,8 +86,8 @@ def test_malformed_toml_is_a_value_error(tmp_path):
         ("n_agents=2", ("n_agents", 2)),
         (" beta = 0.25 ", ("beta", 0.25)),
         ("traits.n_clues=[10, 0]", ("traits.n_clues", [10, 0])),
-        ("network=sbm", ("network", "sbm")),
-        ('network="sbm"', ("network", "sbm")),
+        ("manipulator=pump", ("manipulator", "pump")),
+        ('manipulator="pump"', ("manipulator", "pump")),
     ],
 )
 def test_parse_assignment_keeps_types(text, expected):

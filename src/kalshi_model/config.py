@@ -13,7 +13,6 @@ settings (E3) are the experimenter's choice.
 from dataclasses import dataclass, fields
 
 MECHANISMS = ("amm", "clob")  # "amm" is a legacy feature, unused by the experiments
-NETWORKS = ("erdos_renyi", "watts_strogatz", "barabasi_albert", "holme_kim", "sbm")
 MANIPULATORS = ("none", "twin", "pump", "spoof")
 
 
@@ -86,23 +85,19 @@ class Config:
     n_news_seeds: int = 5
     """Agents who receive each news (or fake) clue directly when it is released."""
 
-    # Information layer (PLAN.md Section 2.4). E2 varies `network` and `disinfo_ratio`.
-    network: str = "holme_kim"
+    # Information layer (PLAN.md Section 2.4): a Holme-Kim network. E2 varies
+    # `disinfo_ratio`.
     mean_degree: int = 8
-    """The same in every network; must be even (Watts-Strogatz and the BA-type graphs).
+    """Must be even: each new node makes `mean_degree / 2` links.
 
     0 means no network at all: news stays with its seed agents (single-agent tests).
     """
-    ws_rewire: float = 0.1
-    """Watts-Strogatz rewiring probability."""
     hk_triad: float = 0.5
     """Holme-Kim chance of closing a triangle after each preferential link."""
-    sbm_cross_share: float = 0.05
-    """Stochastic block model: expected share of a node's links into the other group."""
     beta: float = 0.5
     """Chance per step that a spreader tells each neighbor."""
     disinfo_ratio: float = 0.0
-    """Fake clues per true news clue (0, 0.05, 0.1, 0.2 give 0, 1, 2, 4 fakes)."""
+    """Fake clues per true news clue (0, 0.05, 0.1, 0.2, 0.5 give 0, 1, 2, 4, 10 fakes)."""
 
     # Manipulator (PLAN.md Section 2.3; E3). "none" in E1 and E2; "twin" adds the
     # manipulator's agent trading honestly throughout (E3's baseline, the honest twin);
@@ -218,11 +213,9 @@ class Config:
                 "clue_accuracy must be a float strictly between 0.5 and 1, "
                 f"got {self.clue_accuracy!r}"
             )
-        if self.network not in NETWORKS:
-            raise ValueError(f"network must be one of {NETWORKS}, got {self.network!r}")
         if self.mean_degree % 2 or not 0 <= self.mean_degree < self.n_agents:
             raise ValueError("mean_degree must be even, non-negative, and below n_agents")
-        for name in ("ws_rewire", "hk_triad", "sbm_cross_share", "beta"):
+        for name in ("hk_triad", "beta"):
             if not 0 <= getattr(self, name) <= 1:
                 raise ValueError(f"{name} must be between 0 and 1")
         if self.disinfo_ratio < 0:

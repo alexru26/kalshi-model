@@ -18,7 +18,7 @@ Predictions are written before each experiment runs (`PREDICTIONS.md`) and judge
 
 ```sh
 uv run python experiments/e1_rules.py         # E1: CLOB vs Kalshi
-uv run python experiments/e2_information.py   # E2: networks and disinformation
+uv run python experiments/e2_information.py   # E2: disinformation ratios
 uv run python experiments/e3_manipulation.py  # E3: honest twin vs pump and dump vs spoofing
 ```
 
@@ -27,7 +27,7 @@ To see one run, `experiments/plot_run.py` draws its price over time against `P*`
 ```sh
 uv run python experiments/plot_run.py 20000                       # Kalshi default, seed 20000
 uv run python experiments/plot_run.py 20000 --market clob         # fee-free order book
-uv run python experiments/plot_run.py 20000 --disinfo 0.2 --network watts_strogatz
+uv run python experiments/plot_run.py 20000 --disinfo 0.2           # with disinformation
 ```
 
 ### Custom configurations
