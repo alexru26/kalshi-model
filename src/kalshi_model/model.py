@@ -95,6 +95,76 @@ CLOB_REPORTERS = {
 }
 
 
+def _manip_position(m: MarketModel) -> int:
+    return m.manipulator.position
+
+
+def _manip_pnl(m: MarketModel) -> float:
+    """The manipulator's P&L in dollars so far, its position valued at P*."""
+    man = m.manipulator
+    return (man.cash + 100 * man.position * m.p_star - man.initial_cash) / 100
+
+
+def _manip_orders(m: MarketModel, side: str) -> list:
+    return [o for o in m.book.open_orders(MANIPULATOR) if o.side == side]
+
+
+def _manip_bid(m: MarketModel) -> int | None:
+    return max((o.price for o in _manip_orders(m, BUY)), default=None)
+
+
+def _manip_bid_size(m: MarketModel) -> int:
+    return sum(o.remaining for o in _manip_orders(m, BUY))
+
+
+def _manip_ask(m: MarketModel) -> int | None:
+    return min((o.price for o in _manip_orders(m, SELL)), default=None)
+
+
+def _manip_ask_size(m: MarketModel) -> int:
+    return sum(o.remaining for o in _manip_orders(m, SELL))
+
+
+def _step_fills(m: MarketModel) -> list:
+    start = m.fill_marks[-2] if len(m.fill_marks) > 1 else 0
+    return m.book.fills[start : m.fill_marks[-1]]
+
+
+def _manip_traded(m: MarketModel, side: str) -> int:
+    """Contracts the manipulator bought (side BUY) or sold (SELL) this step."""
+    total = 0
+    for f in _step_fills(m):
+        maker_side = SELL if f.taker_side == BUY else BUY
+        if f.taker == MANIPULATOR and f.taker_side == side:
+            total += f.qty
+        if f.maker == MANIPULATOR and maker_side == side:
+            total += f.qty
+    return total
+
+
+def _manip_bought(m: MarketModel) -> int:
+    return _manip_traded(m, BUY)
+
+
+def _manip_sold(m: MarketModel) -> int:
+    return _manip_traded(m, SELL)
+
+
+MANIPULATOR_REPORTERS = {
+    "manip_position": _manip_position,
+    "manip_pnl": _manip_pnl,
+    "manip_bid": _manip_bid,
+    "manip_bid_size": _manip_bid_size,
+    "manip_ask": _manip_ask,
+    "manip_ask_size": _manip_ask_size,
+    "manip_bought": _manip_bought,
+    "manip_sold": _manip_sold,
+}
+"""Recorded when the run has a manipulator (E3): its position, P&L at P* in dollars, its
+open bid and offer (price in cents and total size; the fake bid and the real offer while
+it spoofs), and the contracts it bought and sold this step."""
+
+
 class InvariantError(AssertionError):
     """A conservation invariant failed: the accounting has a bug."""
 
@@ -195,6 +265,8 @@ class MarketModel(mesa.Model):
         reporters = dict(COMMON_REPORTERS)
         if self.book is not None:
             reporters |= CLOB_REPORTERS
+        if self.manipulator is not None:
+            reporters |= MANIPULATOR_REPORTERS
         self.datacollector = mesa.DataCollector(model_reporters=reporters)
 
     @property

@@ -8,8 +8,7 @@
 - `build_model` turns the GUI's settings into a fresh run, validated by the same code
   as `plot_run.py --config` (`custom.build_custom`).
 - `latest_clue` reports who knows the most recently released news or fake clue.
-- The chart functions draw a run in progress on its full step axis, so the lines grow
-  from left to right as the run plays.
+- `series` reads the recorded columns for the live charts (`live_charts`).
 """
 
 from __future__ import annotations
@@ -19,29 +18,12 @@ from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
 import numpy as np
-from matplotlib.collections import LineCollection
-from matplotlib.figure import Figure
-from matplotlib.lines import Line2D
-from matplotlib.ticker import MaxNLocator
 
 from kalshi_model.config import MANIPULATORS, MECHANISMS, NETWORKS, Config, clob_config
 from kalshi_model.custom import build_custom, load_custom
 from kalshi_model.model import MarketModel
-from kalshi_model.network_plot import LINK, agent_graph
 from kalshi_model.network_plot import _layout as network_layout
-from kalshi_model.plot import (
-    BAND,
-    BAND_EDGE,
-    FAKE,
-    INK,
-    MUTED,
-    NEWS,
-    P_STAR,
-    PRICE,
-    SURFACE,
-    clue_events,
-    style_axes,
-)
+from kalshi_model.network_plot import agent_graph
 from kalshi_model.traits import TRAIT_NAMES
 
 CONFIGS = Path(__file__).resolve().parents[2] / "configs"
@@ -235,206 +217,6 @@ def series(model: MarketModel) -> dict[str, np.ndarray]:
     }
 
 
-def _axes(fig: Figure, n_steps: int):
-    ax = fig.subplots()
-    style_axes(ax)
-    ax.set_xlim(0, n_steps + 1)
-    ax.set_xlabel("step", color=INK)
-    return ax
-
-
-WIDTH = 5.2
-"""Chart width in inches: at 100 dpi, about the width of one column of the page, so
-the browser shows the text at its drawn size."""
-
-
-def _figure() -> Figure:
-    # A bare Figure (no pyplot) draws off-screen and holds no global state.
-    return Figure(figsize=(WIDTH, 2.6), facecolor=SURFACE, layout="constrained")
-
-
-def _legend(ax) -> None:
-    if ax.get_legend_handles_labels()[0]:
-        ax.legend(loc="upper left", frameon=False, fontsize=8, labelcolor=INK, ncol=3)
-
-
-def price_figure(model: MarketModel) -> Figure:
-    """Price and P* in cents, with the release of each news or fake clue marked."""
-    data = series(model)
-    steps = np.arange(1, len(data["price"]) + 1)
-    fig = _figure()
-    ax = _axes(fig, model.config.n_steps)
-    ax.axhline(50, color=MUTED, linewidth=0.8, linestyle=(0, (2, 3)), zorder=1)
-    for e in clue_events(model):
-        ax.axvline(e.step, color=FAKE if e.fake else NEWS, linewidth=0.6, alpha=0.3)
-    ax.plot(steps, 100 * data["price"], color=PRICE, linewidth=1.0, label="price")
-    ax.plot(steps, 100 * data["p_star"], color=P_STAR, linewidth=2, label="P* (benchmark)")
-    ax.set_ylim(0, 106)
-    ax.set_yticks([0, 25, 50, 75, 100])
-    ax.set_ylabel("cents", color=INK)
-    ax.set_title("Price vs P*", loc="left", color=INK, fontsize=11)
-    handles = ax.get_legend_handles_labels()[0]
-    config = model.config
-    if config.n_clues_total > config.n_private:
-        handles.append(Line2D([], [], color=NEWS, linewidth=0.8, label="news release"))
-    if config.n_fakes:
-        handles.append(Line2D([], [], color=FAKE, linewidth=0.8, label="fake release"))
-    ax.legend(handles=handles, loc="upper left", frameon=False, fontsize=8, labelcolor=INK, ncol=4)
-    return fig
-
-
-def volume_figure(model: MarketModel) -> Figure:
-    """Contracts traded each step."""
-    volume = series(model)["volume"]
-    fig = _figure()
-    ax = _axes(fig, model.config.n_steps)
-    steps = np.arange(1, len(volume) + 1)
-    # One line per step: thousands of bar patches would draw too slowly to play live.
-    ax.vlines(steps, 0, volume, color=PRICE, linewidth=0.8)
-    top = np.nanmax(volume) if len(volume) else 0
-    ax.set_ylim(0, max(1.0, float(top)) * 1.05)
-    ax.yaxis.set_major_locator(MaxNLocator(nbins=4, integer=True))
-    ax.set_ylabel("contracts", color=INK)
-    ax.set_title("Volume per step", loc="left", color=INK, fontsize=11)
-    return fig
-
-
-def book_figure(model: MarketModel) -> Figure | None:
-    """Best bid, best ask, and price in cents above the spread; None without a book."""
-    if model.book is None:
-        return None
-    data = series(model)
-    steps = np.arange(1, len(data["price"]) + 1)
-    fig = Figure(figsize=(WIDTH, 3.0), facecolor=SURFACE, layout="constrained")
-    top, bottom = fig.subplots(2, 1, sharex=True, gridspec_kw={"height_ratios": [2.2, 1.0]})
-    for ax in (top, bottom):
-        style_axes(ax)
-        ax.set_xlim(0, model.config.n_steps + 1)
-    bid, ask = data["best_bid"], data["best_ask"]
-    top.fill_between(
-        steps,
-        bid,
-        ask,
-        where=np.isfinite(bid) & np.isfinite(ask),
-        color=BAND,
-        alpha=0.7,
-        linewidth=0,
-        label="best bid to best ask",
-    )
-    for edge in (bid, ask):
-        top.plot(steps, edge, color=BAND_EDGE, linewidth=0.5, alpha=0.8)
-    top.plot(steps, 100 * data["price"], color=PRICE, linewidth=1.0, label="price")
-    top.set_ylim(0, 100)
-    top.set_ylabel("cents", color=INK)
-    top.set_title("Bid, ask, and spread", loc="left", color=INK, fontsize=11)
-    _legend(top)
-    spread = data["spread"]
-    bottom.plot(steps, spread, color=PRICE, linewidth=0.8, drawstyle="steps-post")
-    empty = steps[data["empty_book"] > 0]
-    if len(empty):
-        bottom.scatter(
-            empty,
-            np.zeros(len(empty)),
-            marker="|",
-            s=40,
-            color=INK,
-            label="one side empty",
-            clip_on=False,
-        )
-        _legend(bottom)
-    highest = np.nanmax(spread) if np.isfinite(spread).any() else 1.0
-    bottom.set_ylim(0, max(2.0, 1.1 * highest))
-    bottom.set_ylabel("spread (c)", color=INK)
-    bottom.set_xlabel("step", color=INK)
-    return fig
-
-
-def market_maker_figure(model: MarketModel) -> Figure | None:
-    """Book depth, the market maker's inventory, and its half-spread; None without a book."""
-    if model.book is None:
-        return None
-    data = series(model)
-    steps = np.arange(1, len(data["depth"]) + 1)
-    fig = Figure(figsize=(WIDTH, 3.4), facecolor=SURFACE, layout="constrained")
-    axes = fig.subplots(3, 1, sharex=True)
-    panels = (
-        ("depth", f"depth\n(±{model.config.depth_window}c)"),
-        ("mm_position", "MM position\n(contracts)"),
-        ("mm_half_spread", "MM half-\nspread (c)"),
-    )
-    for ax, (name, label) in zip(axes, panels, strict=True):
-        style_axes(ax)
-        ax.set_xlim(0, model.config.n_steps + 1)
-        ax.plot(steps, data[name], color=PRICE, linewidth=0.9, drawstyle="steps-post")
-        if not np.isfinite(data[name]).any():  # nothing recorded yet: a plain 0 to 1 axis
-            ax.set_ylim(0, 1)
-        ax.set_ylabel(label, color=INK, fontsize=9)
-        ax.yaxis.set_major_locator(MaxNLocator(nbins=3))
-    axes[1].axhline(0, color=MUTED, linewidth=0.8, linestyle=(0, (2, 3)))
-    axes[0].set_title("Depth and market maker", loc="left", color=INK, fontsize=11)
-    axes[-1].set_xlabel("step", color=INK)
-    return fig
-
-
-SPREAD_COLORS = {UNKNOWN: "#d6d5d0", AT_RELEASE: INK, FROM_NEIGHBOR: PRICE}
-"""Node colors: gray does not know the clue yet, black got it at release, blue heard it
-(purple, the fake color, when the clue is a fake)."""
-
-
 def network_layout_for(model: MarketModel) -> dict[int, np.ndarray]:
     """Node positions for a run's network: the same spring layout as `network_plot`."""
     return network_layout(agent_graph(model), model.seed)
-
-
-def network_figure(model: MarketModel, layout: dict[int, np.ndarray]) -> Figure:
-    """The agents' network, colored by who knows the most recently released clue."""
-    graph = agent_graph(model)
-    n = graph.number_of_nodes()
-    xy = np.array([layout[i] for i in range(n)])
-    fig = Figure(figsize=(WIDTH, 4.6), facecolor=SURFACE, layout="constrained")
-    ax = fig.subplots()
-    ax.set_facecolor(SURFACE)
-    ax.set_axis_off()
-    if graph.number_of_edges():
-        segments = [(layout[a], layout[b]) for a, b in graph.edges]
-        ax.add_collection(LineCollection(segments, colors=LINK, linewidths=0.4, alpha=0.6))
-    spread = latest_clue(model)
-    state = np.full(n, UNKNOWN) if spread is None else spread.state
-    heard = SPREAD_COLORS[FROM_NEIGHBOR]
-    if spread is not None and spread.fake:
-        heard = FAKE
-    colors = [heard if s == FROM_NEIGHBOR else SPREAD_COLORS[int(s)] for s in state.tolist()]
-    size = max(8.0, min(60.0, 6000 / max(n, 1)))
-    ax.scatter(xy[:, 0], xy[:, 1], s=size, c=colors, edgecolors=SURFACE, linewidths=0.4)
-    ax.autoscale_view()
-    ax.set_aspect("equal", adjustable="datalim")
-
-    config = model.config
-    if config.n_clues_total == config.n_private and not config.n_fakes:
-        title = "Who knows the latest clue: this run releases no news or fakes"
-    elif spread is None:
-        title = "Who knows the latest clue: no clue released yet"
-    else:
-        kind = "fake" if spread.fake else "news"
-        side = "YES" if spread.points_yes else "NO"
-        knows = int((state != UNKNOWN).sum())
-        title = (
-            f"Latest clue: {kind} #{spread.clue_id} (points {side}), released step "
-            f"{spread.released}. {knows} of {n} agents know it"
-        )
-    ax.set_title(title, loc="left", color=INK, fontsize=10, wrap=True)
-    handles = [
-        Line2D([], [], marker="o", linestyle="", color=SPREAD_COLORS[UNKNOWN], label="not yet"),
-        Line2D([], [], marker="o", linestyle="", color=INK, label="got it at release"),
-        Line2D([], [], marker="o", linestyle="", color=heard, label="heard from a neighbor"),
-    ]
-    ax.legend(
-        handles=handles,
-        loc="lower left",
-        frameon=False,
-        fontsize=8,
-        labelcolor=INK,
-        ncol=3,
-        bbox_to_anchor=(0, -0.06),
-    )
-    return fig

@@ -10,9 +10,13 @@ grouped by section, and a pin for each agent trait. Any change rebuilds the run 
 0 with the new settings and pauses it; an invalid setting shows its error and leaves
 the current run as it was.
 
-The main area shows the price against P*, volume, the bid, ask, and spread, book depth
+The main area shows Plotly charts (`live_charts`), each built once per run and then fed
+new data in place: the price against P*, volume, the bid, ask, and spread, book depth
 and the market maker, and the network colored by who knows the latest clue. Order book
 charts need the order book, so the legacy AMM shows only the price, volume, and network.
+E3 runs add the manipulator's position and P&L, its orders against the book, and, for
+pump and dump or spoofing, its price against the honest twin's on the same seed (the
+twin runs alongside, in step).
 """
 
 from __future__ import annotations
@@ -20,10 +24,13 @@ from __future__ import annotations
 import threading
 import time
 
+import ipyvuetify as v
 import solara
 import solara.lab
+import traitlets
 
 from kalshi_model import live
+from kalshi_model.live_charts import MAIN_CHARTS, MANIPULATOR_CHARTS, Chart, Run, apply, widget
 from kalshi_model.model import MarketModel
 from kalshi_model.traits import TRAIT_NAMES
 
@@ -33,13 +40,25 @@ RENDER_INTERVAL = (1, 100, 2, 1)
 """Render interval slider in steps: min, max, step, start (Mesa's SolaraViz values)."""
 
 
+def make_run(values: dict[str, object], pins: dict[str, object], seed: int) -> Run:
+    """A fresh run at step 0, with an honest twin on the same seed when the manipulator
+    pumps and dumps or spoofs. Raises ValueError for any invalid setting or pin."""
+    model = live.build_model(values, pins, seed)
+    twin = None
+    if model.config.manipulator in ("pump", "spoof"):
+        twin = live.build_model({**values, "manipulator": "twin"}, pins, seed)
+    return Run(model, twin, live.network_layout_for(model))
+
+
 class Session:
     """One browser tab's state: the settings, the run, and the playback controls.
 
     Settings live in reactive variables so every input and chart rerenders when they
-    change. `version` counts chart updates: the play loop bumps it after each batch of
-    steps, since stepping the model mutates it in place. `lock` lets one thread at a
-    time step the run or draw it, since the play loop steps it in a worker thread.
+    change. `run` holds the model, its honest twin (pump and dump or spoofing only),
+    and the network layout. `version` counts chart updates: the play loop bumps it
+    after each batch of steps, since stepping the model mutates it in place. `lock` lets
+    one thread at a time step the run or read it for the charts, since the play loop
+    steps it in a worker thread.
     """
 
     def __init__(self) -> None:
@@ -51,8 +70,7 @@ class Session:
         )
         self.seed = solara.reactive(live.DEFAULT_SEED)
         self.error = solara.reactive(None)
-        self.model = solara.reactive(live.build_model(preset.values, preset.pins, self.seed.value))
-        self.layout = solara.reactive(live.network_layout_for(self.model.value))
+        self.run = solara.reactive(make_run(preset.values, preset.pins, self.seed.value))
         self.playing = solara.reactive(False)
         self.play_interval = solara.reactive(PLAY_INTERVAL[3])
         self.render_interval = solara.reactive(RENDER_INTERVAL[3])
@@ -80,13 +98,12 @@ class Session:
                 value = live.parse_pin(name, text)
                 if value is not None:
                     pins[name] = value
-            model = live.build_model(values, pins, seed)
+            run = make_run(values, pins, seed)
         except ValueError as e:
             self.error.value = str(e)
             return
         self.error.value = None
-        self.layout.value = live.network_layout_for(model)
-        self.model.value = model
+        self.run.value = run
         self.version.value += 1
 
     def apply_preset(self, name: str) -> None:
@@ -105,33 +122,35 @@ class Session:
         """Advance the run up to n steps (stopping at settlement, or at a pause when
         `while_playing`) and redraw once."""
         with self.lock:
-            model = self.model.value
+            run = self.run.value
             for _ in range(n):
-                if model.settled or (while_playing and not self.playing.value):
+                if run.model.settled or (while_playing and not self.playing.value):
                     break
-                model.step()
+                run.model.step()
+                if run.twin is not None:
+                    run.twin.step()
         self.version.value += 1
 
     def play(self) -> None:
         """The play loop: one batch of `render_interval` steps per `play_interval`, until
         paused, settled, or replaced by a rebuilt run."""
-        model = self.model.value
-        while self.playing.value and self.model.value is model and not model.settled:
+        run = self.run.value
+        while self.playing.value and self.run.value is run and not run.model.settled:
             time.sleep(self.play_interval.value / 1000)
-            if not self.playing.value or self.model.value is not model:
+            if not self.playing.value or self.run.value is not run:
                 return
             self.step(self.render_interval.value, while_playing=True)
-        if self.model.value is model and model.settled:
+        if self.run.value is run and run.model.settled:
             self.playing.value = False
 
 
 @solara.component
 def Controls(session: Session):
-    model: MarketModel = session.model.value
+    model: MarketModel = session.run.value.model
     session.version.use_value()  # the step count changes as the run plays
     playing = session.playing.value
     solara.lab.use_task(
-        session.play, dependencies=[playing, session.model.value], prefer_threaded=True
+        session.play, dependencies=[playing, session.run.value], prefer_threaded=True
     )
     with solara.Card("Controls"):
         with solara.Row(justify="space-between"):
@@ -227,38 +246,66 @@ def Settings(session: Session):
                 )
 
 
+class ResizeWatcher(v.VuetifyTemplate):
+    """Browser-side helper: when the element around a chart changes width (as it does
+    once the page lays out), fire a window resize, the one signal on which Plotly's
+    widget refits itself to its container. Without it a chart keeps Plotly's default
+    700 px width and is cut off in a narrower column."""
+
+    template = traitlets.Unicode("""
+<template><span style="display: none"></span></template>
+<script>
+module.exports = {
+  mounted() {
+    let timer = null;
+    this.observer = new ResizeObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
+    });
+    this.observer.observe(this.$el.parentElement);
+  },
+  destroyed() {
+    this.observer.disconnect();
+  },
+};
+</script>
+""").tag(sync=True)
+
+
 @solara.component
-def Chart(session: Session, draw):
-    """One live chart: redrawn whenever the run steps or is replaced."""
+def LiveChart(session: Session, chart: Chart):
+    """One chart: a Plotly widget built for each new run, fed new data on every update."""
+    run = session.run.value
     version = session.version.value
-    model = session.model.value
-    with session.lock:
-        fig = draw(model)
-    if fig is None:
-        return
-    solara.FigureMatplotlib(fig, format="png", dependencies=[version, id(model)])
+    figure = solara.use_memo(lambda: widget(chart, run), [run, chart])
+
+    def refresh() -> None:
+        with session.lock:
+            update = chart.update(run)
+        apply(figure, update)
+
+    solara.use_effect(refresh, [version, run, figure])
+    solara.Column(children=[figure, ResizeWatcher.element()], style={"width": "100%"})
 
 
 @solara.component
 def Charts(session: Session):
-    layout = session.layout.value
-
-    def network(model):
-        return live.network_figure(model, layout)
-
-    has_book = session.model.value.book is not None
+    run = session.run.value
     with solara.Columns([1, 1]):
-        with solara.Column():
-            Chart(session, live.price_figure)
-            Chart(session, live.volume_figure)
-            if has_book:
-                Chart(session, live.book_figure)
-        with solara.Column():
-            Chart(session, network)
-            if has_book:
-                Chart(session, live.market_maker_figure)
-            else:
-                solara.Info("The legacy AMM has no order book: no bid, ask, or depth charts.")
+        for column in MAIN_CHARTS:
+            with solara.Column():
+                for chart in column:
+                    if chart.applies(run):
+                        LiveChart(session, chart)
+    if run.model.book is None:
+        solara.Info("The legacy AMM has no order book: no bid, ask, or depth charts.")
+    manipulator = [chart for chart in MANIPULATOR_CHARTS if chart.applies(run)]
+    if manipulator:
+        with solara.Columns([1, 1]):
+            for i in range(2):
+                with solara.Column():
+                    for chart in manipulator[i::2]:
+                        LiveChart(session, chart)
 
 
 @solara.component

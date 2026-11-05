@@ -1,10 +1,11 @@
 """The live GUI, rendered headless and driven through its widgets as a user would."""
 
+import re
 import time
 from dataclasses import fields
 
 import ipyvuetify as v
-import ipywidgets
+import plotly.graph_objects as go
 import pytest
 import solara
 
@@ -53,14 +54,26 @@ def errors(rc) -> list[str]:
     return [w.children[0] for w in rc.find(v.Alert, type="error").widgets]
 
 
-def charts(rc) -> int:
-    return len(rc.find(ipywidgets.Image).widgets)
+def charts(rc) -> list[str]:
+    """The titles of the charts on the page, in order."""
+    return [w.layout.title.text for w in rc.find(go.FigureWidget).widgets]
+
+
+def short(title: str) -> str:
+    """A chart title up to its first colon or line break."""
+    return re.split(r":|<br>", title)[0]
 
 
 def test_starts_paused_at_step_0_of_the_default(page):
     assert status(page) == f"Step 0 of {Config().n_steps} (paused)"
     assert page.find(v.Select, label="Preset").widget.v_model == live.DEFAULT_PRESET
-    assert charts(page) == 5
+    assert [short(title) for title in charts(page)] == [
+        "Price vs P*",
+        "Volume per step",
+        "Bid, ask, and spread",
+        "Who knows the latest clue",
+        "Depth and market maker",
+    ]
 
 
 def test_editor_shows_every_config_field_and_trait(page):
@@ -182,6 +195,54 @@ def test_amm_drops_the_order_book_charts(page):
     type_into(page, "taker_fee_bp", "0")
     choose(page, "mechanism", "amm")
     assert errors(page) == []
-    assert charts(page) == 3  # price, volume, network
+    assert [short(title) for title in charts(page)] == [
+        "Price vs P*",
+        "Volume per step",
+        "Who knows the latest clue",
+    ]
     info = page.find(v.Alert, type="info").widget.children[0]
     assert "no order book" in info
+
+
+@pytest.mark.parametrize(
+    ("preset", "extra"),
+    [
+        (
+            "E3: honest twin",
+            ["Manipulator: position and P&L (twin)", "Manipulator: its orders vs the book (twin)"],
+        ),
+        (
+            "E3: pump and dump",
+            [
+                "Manipulator: position and P&L (pump)",
+                "Manipulator: its orders vs the book (pump)",
+                "Price vs the honest twin (pump)",
+            ],
+        ),
+        (
+            "E3: spoofing",
+            [
+                "Manipulator: position and P&L (spoof)",
+                "Manipulator: its orders vs the book (spoof)",
+                "Price vs the honest twin (spoof)",
+            ],
+        ),
+    ],
+)
+def test_e3_presets_add_the_manipulator_charts(page, preset, extra):
+    choose(page, "Preset", preset)
+    assert sorted(charts(page)[5:]) == sorted(extra)
+
+
+def test_charts_follow_the_run_as_it_steps(page):
+    choose(page, "Preset", "E3: pump and dump")
+    page.find(v.Slider, label="Render Interval: 1 steps").widget.v_model = 25
+    for _ in range(2):
+        click(page, "Step")
+    figures = {w.layout.title.text: w for w in page.find(go.FigureWidget).widgets}
+    price = figures["Price vs P*"]
+    assert len(price.data[0].x) == 50
+    assert price.data[0].x[-1] == 50
+    twin = figures["Price vs the honest twin (pump)"]
+    assert len(twin.data[0].x) == 50  # the twin steps alongside
+    assert list(twin.data[2].y) == [0.0] * 50  # no manipulation before manip_start
