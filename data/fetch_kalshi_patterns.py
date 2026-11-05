@@ -1,4 +1,4 @@
-"""Fetch the real Kalshi patterns that Step 7 calibrates against.
+"""Fetch the real Kalshi patterns that `experiments/calibrate.py` calibrates against.
 
 Pulls open binary markets from Kalshi's public API (no key needed), keeps liquid ones
 quoted near the middle, and records:

@@ -1,4 +1,4 @@
-# Level 1 (MODEL_OUTLINE.md Section 4): Level 0 plus a third trader, scheduled news, and
+# Level 1: Level 0 plus a third trader, scheduled news, and
 # a triangle network that spreads it. Unlisted settings keep their defaults
 # (configs/default.toml).
 # Run: uv run python experiments/plot_run.py --config configs/level_1.toml

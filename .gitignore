@@ -36,3 +36,13 @@ desktop.ini
 *:Zone.Identifier
 .vscode/
 .idea/
+
+# Private planning and agent notes (kept local only)
+/AGENTS.md
+/CLAUDE.md
+/MODEL_OUTLINE.md
+/MODEL_OUTLINE_INSTRUCTIONS.md
+/PLAN.md
+/PREDICTIONS.md
+/RESULTS.md
+/SOURCES.md

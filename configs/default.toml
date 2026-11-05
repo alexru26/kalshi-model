@@ -9,8 +9,8 @@
 #   Kalshi:         mechanism = "clob", taker_fee_bp = 700, maker_fee_bp = 0
 #   CLOB, no fees:  mechanism = "clob", taker_fee_bp = 0,   maker_fee_bp = 0
 #   AMM (LMSR):     mechanism = "amm",  taker_fee_bp = 0,   maker_fee_bp = 0   (legacy, not in E1)
-# Money is in integer cents. Settings marked "calibrated" were tuned to Kalshi data
-# (PLAN.md Step 8c); changing them leaves the calibrated region.
+# Money is in integer cents. Settings marked "calibrated" were tuned to Kalshi data;
+# changing them leaves the calibrated region.
 # Run: uv run python experiments/plot_run.py --config configs/default.toml
 
 # --- Run size --------------------------------------------------------------------------

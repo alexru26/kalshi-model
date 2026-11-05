@@ -78,7 +78,7 @@ def test_the_price_must_beat_the_agents_own_judgment():
     [(0.7, False), (0.8, True), (1.0, True), (1.29, True), (1.4, True), (1.5, False), (4.5, False)],
 )
 def test_the_price_must_be_calibrated(slope, met):
-    # 4.5 is the compressed Step 8 price; below 0.8 the price is overconfident.
+    # 4.5 is the compressed price of an earlier belief rule; below 0.8 the price is overconfident.
     result = evaluate(patterns(calibration_slope=slope), TARGET)
     assert result["met"]["calibrated"] is met
     assert result["accepted"] is met

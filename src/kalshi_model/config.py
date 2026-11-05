@@ -1,12 +1,12 @@
 """The single configuration object for a model run.
 
-Every parameter is a field of `Config` (PLAN.md Section 4), and every field's frozen
+Every parameter is a field of `Config`, and every field's frozen
 default lives in `configs/default.toml`, read once at import. Edit that file to change a
 default; the experiments save each run's full configuration with its results. The
-trait settings and the market maker were calibrated in Steps 7, 8b, and 8c against real
-Kalshi patterns (`experiments/calibrate.py`, `results/calibration.csv`). Since Step 8c
-only informedness and cash vary across agents; each other trait is one population
-value. `g` (set from lab estimates), informedness (set in Step 3), `w_hearsay` and
+trait settings and the market maker were calibrated against real
+Kalshi patterns (`experiments/calibrate.py`, `results/calibration.csv`).
+Only informedness and cash vary across agents; each other trait is one population
+value. `g` (set from lab estimates), informedness, `w_hearsay` and
 `w_depth` (no data anchor), and the network, legacy AMM, and order-upkeep settings are
 assumptions or starting guesses, and the manipulator's settings (E3) are the
 experimenter's choice.
@@ -72,7 +72,7 @@ class Config:
     taker_fee_bp: int = _default("taker_fee_bp")
     maker_fee_bp: int = _default("maker_fee_bp")
 
-    # Order book reading and upkeep (PLAN.md Section 2.2; starting guesses).
+    # Order book reading and upkeep (starting guesses).
     spread_cap: int = _default("spread_cap")
     """Widest spread, in cents, at which agents read the midpoint instead of the last trade."""
     depth_window: int = _default("depth_window")
@@ -82,8 +82,8 @@ class Config:
     stale_steps: int = _default("stale_steps")
     """Steps a resting order may sit stale before its owner cancels it to reprice."""
 
-    # Market-maker component in the CLOB (PLAN.md Section 2.1). mm_size and
-    # mm_half_spread were calibrated (Steps 7, 8b, and 8c); the rest are starting guesses.
+    # Market-maker component in the CLOB. mm_size and
+    # mm_half_spread were calibrated; the rest are starting guesses.
     mm_cash: int = _default("mm_cash")
     """Market maker's starting cash, in cents."""
     mm_size: int = _default("mm_size")
@@ -102,7 +102,7 @@ class Config:
     mm_max_inventory: int = _default("mm_max_inventory")
     """Hard cap on the market maker's inventory, in contracts long or short."""
 
-    # World (PLAN.md Section 2.4): M clues, each pointing to the truth with probability
+    # World: M clues, each pointing to the truth with probability
     # q. The first K are the private pool; the other M - K are released as news.
     n_clues_total: int = _default("n_clues_total")
     """M; 0 gives a world with no information at all (P* stays at 50%)."""
@@ -111,7 +111,7 @@ class Config:
     n_news_seeds: int = _default("n_news_seeds")
     """Agents who receive each news (or fake) clue directly when it is released."""
 
-    # Information layer (PLAN.md Section 2.4): a Holme-Kim network. E2 varies
+    # Information layer: a Holme-Kim network. E2 varies
     # `disinfo_ratio`.
     network: str = _default("network")
     """"holme_kim" in every experiment. "watts_strogatz" (a ring, rewired with
@@ -131,10 +131,10 @@ class Config:
     disinfo_ratio: float = _default("disinfo_ratio")
     """Fake clues per true news clue (0, 0.05, 0.1, 0.2, 0.5 give 0, 1, 2, 4, 10 fakes)."""
 
-    # Manipulator (PLAN.md Section 2.3; E3). "none" in E1 and E2; "twin" adds the
+    # Manipulator (E3). "none" in E1 and E2; "twin" adds the
     # manipulator's agent trading honestly throughout (E3's baseline, the honest twin);
     # "pump" and "spoof" add its manipulation layer from `manip_start`. Order book only.
-    # Every setting is the experimenter's choice (starting guesses, PLAN.md Section 2.3).
+    # Every setting is the experimenter's choice (starting guesses).
     manipulator: str = _default("manipulator")
     manip_n_clues: int = _default("manip_n_clues")
     """Private clues the manipulator holds: the population's median informedness."""
@@ -161,12 +161,12 @@ class Config:
     spoof_steps: int = _default("spoof_steps")
     """Steps the spoofing lasts."""
 
-    # Agent traits (PLAN.md Section 2.2). Only informedness and cash vary across agents;
+    # Agent traits. Only informedness and cash vary across agents;
     # every other trait is one value for the whole population. Informedness is
     # heavy-tailed: with mean 20 and dispersion 0.2, about 40% of agents hold no private
     # clue and the top 10% hold most of the pool. The price is roughly a wealth-weighted
     # average of beliefs, so how much of the cash the informed hold (cash_rho) sets how
-    # far it moves toward P*. Calibrated in Step 8c except informedness, w_hearsay,
+    # far it moves toward P*. Calibrated except informedness, w_hearsay,
     # w_depth, and g.
     n_clues_mean: float = _default("n_clues_mean")
     n_clues_dispersion: float = _default("n_clues_dispersion")
@@ -176,7 +176,7 @@ class Config:
     """Log-scale spread of starting cash."""
     cash_rho: float = _default("cash_rho")
     """Rank correlation (Gaussian copula) of starting cash with informedness: market
-    selection leaves more of the money with the well-informed (PLAN.md Section 2.2)."""
+    selection leaves more of the money with the well-informed."""
     w_hearsay: float = _default("w_hearsay")
     """Weight on fakes heard from neighbors, 0 to 1 (no data anchor)."""
     market_trust: float = _default("market_trust")

@@ -1,4 +1,4 @@
-"""A central limit order book for one YES contract (PLAN.md Sections 2.1 and 4).
+"""A central limit order book for one YES contract.
 
 Plain Python, no Mesa. Money is integer cents, prices are integer cents from 1 to 99,
 and positions are signed YES counts: buying NO at x is selling YES at 100 - x.
@@ -256,7 +256,7 @@ class OrderBook:
         return 0.0 if total == 0 else (bids - asks) / total
 
     def reference_price(self, spread_cap: int) -> float | None:
-        """The price agents read and metrics score, as a probability (PLAN.md Section 3).
+        """The price agents read and metrics score, as a probability.
 
         The midpoint when both sides are quoted within `spread_cap` cents, else the last
         trade, else None (nothing to read yet).

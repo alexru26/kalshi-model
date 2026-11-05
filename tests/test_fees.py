@@ -60,7 +60,7 @@ def test_fee_rounds_per_fill_not_per_contract():
 
 
 def test_fee_hits_small_cheap_orders_hardest():
-    # One contract at 5c pays 1c, 20% of its cost (PLAN.md Section 2.1).
+    # One contract at 5c pays 1c, 20% of its cost.
     assert fee_cents(1, 5, TAKER_BP) * 100 == 20 * 5
 
 

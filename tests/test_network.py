@@ -109,7 +109,7 @@ def first_known_steps(model, clue_id):
 
 
 def test_at_beta_one_a_clue_reaches_everyone_within_the_network_diameter():
-    """Step 6 'done when': each agent learns the clue exactly d steps after release,
+    """Each agent learns the clue exactly d steps after release,
     where d is its distance from the seed, so everyone reachable knows it within the
     network's diameter."""
     model = MarketModel(small_config(beta=1.0), 0, debug=True)

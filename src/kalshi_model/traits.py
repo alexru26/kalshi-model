@@ -1,4 +1,4 @@
-"""Agent trait population (PLAN.md Section 2.2).
+"""Agent trait population.
 
 Only two traits vary across agents: informedness (`n_clues`) and starting `cash`. Every
 other trait takes one population value from the config, so it needs no distribution.

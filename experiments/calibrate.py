@@ -1,4 +1,4 @@
-"""Step 7: pattern-oriented calibration of the Kalshi default (PLAN.md Section 4).
+"""Pattern-oriented calibration of the Kalshi default.
 
 Pattern-oriented modeling looks for the region of settings consistent with the data, not
 one best point (Grimm et al. 2005), so this is a rejection search:
@@ -7,7 +7,7 @@ one best point (Grimm et al. 2005), so this is a rejection search:
    every setting's range), each run on the search seeds; a candidate is accepted if it
    meets every required pattern (`kalshi_model.calibration`).
 2. Select: the accepted candidates nearest the accepted region's median (central), and
-   a spread-out set chosen by farthest-point sampling (the ensemble for Step 11).
+   a spread-out set chosen by farthest-point sampling (the calibration ensemble).
 3. Check: rerun those on fresh seeds. Many seeds are needed because informed agents'
    P&L swings with luck: they win big in worlds where their clues point the right way
    and lose big where the clues mislead.

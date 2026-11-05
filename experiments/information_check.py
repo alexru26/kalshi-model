@@ -1,4 +1,4 @@
-"""Step 6 check: news spread speed and price distortion from disinformation.
+"""Check news spread speed and price distortion from disinformation.
 
 Usage: uv run python experiments/information_check.py [number of seeds]
 """

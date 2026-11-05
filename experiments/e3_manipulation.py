@@ -2,14 +2,14 @@
 
 All three configurations add the same manipulator agent to the Kalshi default: the
 twin trades honestly throughout, the others add their manipulation layer from
-`manip_start` (PLAN.md Section 2.3). Each seed runs all three together, so distortion
+`manip_start`. Each seed runs all three together, so distortion
 is measured step by step against the twin's price on the same seed (`metrics.
 manipulation_metrics`), and the manipulation premium is the manipulator's P&L minus the
 twin's. P&L is valued at final P* (no fakes in E3, so it has the outcome's expectation
 with far less luck; `metrics.expected_pnl`).
 
 Writes results/e3_manipulation.csv (one row per run) and .json (commit, seeds,
-configs), then prints each prediction in PREDICTIONS.md against the data. `summary`
+configs), then prints each prediction against the data. `summary`
 reprints from the saved CSV without rerunning; it also compares the twin's market with
 the Kalshi default of E1 (`results/e1_rules.csv`), which has no manipulator.
 

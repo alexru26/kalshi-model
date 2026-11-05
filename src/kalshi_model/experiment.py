@@ -1,4 +1,4 @@
-"""Running an experiment and comparing its configurations (PLAN.md Sections 1 and 3).
+"""Running an experiment and comparing its configurations.
 
 Every configuration runs on the same seeds with the conservation invariants checked
 every step, and each run is one row of the results CSV. A JSON file beside the CSV

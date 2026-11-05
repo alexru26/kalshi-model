@@ -1,4 +1,4 @@
-"""The Mesa model: one market over one run (PLAN.md Section 2.5).
+"""The Mesa model: one market over one run.
 
 Each step releases scheduled news and fake clues to seed agents, spreads clues one step
 along the social network, lets the CLOB's market maker requote, then gives a
@@ -300,7 +300,7 @@ class MarketModel(mesa.Model):
 
         A true news clue is a public report the listener can check at its source, so it
         counts as the listener's own evidence; a fake has no source to check, so it stays
-        hearsay, weighted by `w_hearsay` (PLAN.md Section 2.4).
+        hearsay, weighted by `w_hearsay`.
         """
         beta = self.config.beta
         for trader in self.traders:

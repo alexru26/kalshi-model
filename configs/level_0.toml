@@ -1,4 +1,4 @@
-# Level 0 (MODEL_OUTLINE.md Section 3): two identical traders with private clues and the
+# Level 0: two identical traders with private clues and the
 # market maker under Kalshi rules. No news, no network. Unlisted settings keep their
 # defaults (configs/default.toml).
 # Run: uv run python experiments/plot_run.py --config configs/level_0.toml

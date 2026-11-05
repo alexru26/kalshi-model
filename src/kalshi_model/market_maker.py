@@ -1,4 +1,4 @@
-"""The CLOB's market-maker component (PLAN.md Section 2.1).
+"""The CLOB's market-maker component.
 
 A model component, not an agent: it has no beliefs or clues. Each step, before agents
 act, it cancels its quotes and requotes both sides:

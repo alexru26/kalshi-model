@@ -1,4 +1,4 @@
-"""The social network and how news and disinformation spread on it (PLAN.md Section 2.4).
+"""The social network and how news and disinformation spread on it.
 
 The network is a Holme-Kim graph (NetworkX `powerlaw_cluster_graph(N, k / 2, p)`):
 preferential attachment gives it hubs, and closing a triangle with probability

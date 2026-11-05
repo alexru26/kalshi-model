@@ -1,4 +1,4 @@
-"""The manipulator (PLAN.md Section 2.3): an agent with the honest rules plus a
+"""The manipulator: an agent with the honest rules plus a
 manipulation layer.
 
 Its traits are set by the experimenter, not drawn: each is the population's single value

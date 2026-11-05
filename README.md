@@ -1,6 +1,6 @@
 # kalshi-model
 
-An agent-based model of one Kalshi binary prediction market. See `PLAN.md` for the design and build order.
+An agent-based model of one Kalshi binary prediction market.
 
 ## Development
 
@@ -14,7 +14,7 @@ uv run ruff check && uv run ruff format --check
 
 ## Experiments
 
-Predictions are written before each experiment runs (`PREDICTIONS.md`) and judged in `RESULTS.md`. Each script writes one row per run to `results/` and prints the comparisons; add `summary` to reprint them from the saved results.
+Predictions are written before each experiment runs, and each script prints them against the data. Each script writes one row per run to `results/` and prints the comparisons; add `summary` to reprint them from the saved results.
 
 ```sh
 uv run python experiments/e1_rules.py         # E1: CLOB vs Kalshi

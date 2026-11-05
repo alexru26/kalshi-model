@@ -1,4 +1,4 @@
-"""Pattern-oriented calibration (Grimm et al. 2005; PLAN.md Sections 2.2 and 4, Step 7).
+"""Pattern-oriented calibration (Grimm et al. 2005).
 
 The default Kalshi market should reproduce several real patterns at once:
 
@@ -10,12 +10,12 @@ The default Kalshi market should reproduce several real patterns at once:
    1-6c), so the pattern does not pin the spread down.
 2. Kalshi trade sizes: the quantiles of fill sizes match Kalshi's trades.
 3. The book is rarely empty: at most 2% of steps end with no bid or no offer (the
-   Step 5 criterion, kept while tuning so larger orders cannot empty the book).
+   order-book criterion, kept while tuning so larger orders cannot empty the book).
 4. Informed agents earn more: the best-informed tenth out-earns agents with no clues,
    who lose on average (they pay spreads and fees for noise trading). P&L is valued at
    final P* (`metrics.expected_pnl`): calibration runs have no disinformation, so this
    has the realized P&L's expectation with about a sixth of its spread across seeds,
-   which the outcome's luck otherwise dominates (Step 8b).
+   which the outcome's luck otherwise dominates.
 5. The price is calibrated: regressing logit(P*) on logit(price), over the second half
    of every run, gives a slope between 0.8 and 1.4. Without disinformation P* is the
    outcome's exact posterior, so it stands in for the outcome with far less noise; a
@@ -24,7 +24,7 @@ The default Kalshi market should reproduce several real patterns at once:
    resolution (Page & Clemen 2013), and miss in the underconfident direction of the
    favorite-longshot bias (Burgi et al. 2025), so the band reaches further above 1.
    The informed earn only when the price leaves them an edge (Grossman & Stiglitz
-   1980), so in the third Step 8b search every setting that met the other patterns
+   1980), so in an earlier search every setting that met the other patterns
    had a slope of 1.2 to 1.3. Once relayed news counted as own evidence, 68 settings
    met them within 0.8-1.25, and the frozen one's slope is 1.10-1.18 on fresh seeds.
    Only the overall slope is fitted, so the favorite-longshot bias at the extremes
@@ -33,8 +33,8 @@ The default Kalshi market should reproduce several real patterns at once:
    average agent's own judgment. Each agent is scored on its own-evidence posterior
    (no market term, no depth signal, no noise); one who knows no clue at all scores
    0.5, which is rare by the end of a run because news and hearsay reach nearly every
-   agent. Under the Step 3 averaging belief rule the price was barely better, so this
-   was reported rather than required until Step 8b (PLAN.md).
+   agent. Under an earlier averaging belief rule the price was barely better, so this
+   pattern was once reported rather than required.
 
 `measure` reads these off finished runs; `targets` loads the real values fetched by
 `data/fetch_kalshi_patterns.py`; `evaluate` scores a run set against them. The second
@@ -190,11 +190,11 @@ SPACE = (
     Dimension("mm_size", 3, 100, log=True, integer=True),
     Dimension("mm_half_spread", 0.5, 4.0),
 )
-"""The calibrated settings and their prior ranges. Since Step 8c the cash distribution
+"""The calibrated settings and their prior ranges. The cash distribution
 and its link to informedness are the only searched trait distributions; the other
-searched traits are single population values, with ranges covering what the Step 8b
+searched traits are single population values, with ranges covering what earlier trait
 distributions spanned on average. Not searched: g (lab estimates), informedness
-(Step 3), and w_hearsay and w_depth (no data anchor)."""
+(an assumption), and w_hearsay and w_depth (no data anchor)."""
 
 
 def config_overrides(u: np.ndarray) -> dict:

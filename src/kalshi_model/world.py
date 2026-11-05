@@ -1,8 +1,7 @@
 """The world: the true outcome, the clues, the news schedule, and the benchmark P*.
 
 Clue ids run from 0 to M - 1. The first K are the private pool handed out at setup; the
-rest are released as scheduled news, in id order, at evenly spaced steps (PLAN.md
-Section 2.4).
+rest are released as scheduled news, in id order, at evenly spaced steps.
 """
 
 import math

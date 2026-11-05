@@ -1,4 +1,4 @@
-"""Traders: belief, perceived probability, Kelly sizing, and trading (PLAN.md Section 2.2).
+"""Traders: belief, perceived probability, Kelly sizing, and trading.
 
 The pure functions here hold the decision rules so they can be tested by hand; `Trader`
 wires them to one agent's traits, clues, cash, and position. Money is integer cents and
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from kalshi_model.lmsr import LMSR
     from kalshi_model.model import MarketModel
 
-# Guards the market-trust weight against 0 / 0 (PLAN.md Section 2.2).
+# Guards the market-trust weight against 0 / 0.
 EPS = 1e-9
 # Keeps float error from flooring an exact contract count one short (499.999... -> 4).
 _FLOOR_TOLERANCE = 1e-9
@@ -52,7 +52,7 @@ def belief_log_odds(
     The price counts as evidence from other traders' clues, added to the agent's own.
     `w_m = market_trust / (market_trust + n_eff + eps)` with `n_eff = n_own + w_h n_heard`
     discounts it by the share of the market's information the agent thinks it holds,
-    and `w_m = 0` when there is no reference price (PLAN.md Section 2.2).
+    and `w_m = 0` when there is no reference price.
     """
     market_term = 0.0
     if reference_price is not None:
