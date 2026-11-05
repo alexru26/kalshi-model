@@ -10,12 +10,18 @@ import solara
 
 from kalshi_model import gui, live
 from kalshi_model.config import Config
+from kalshi_model.model import MarketModel
 from kalshi_model.traits import TRAIT_NAMES
+
+
+def render():
+    _box, rc = solara.render(solara.AppLayout(children=[gui.Page()]), handle_error=False)
+    return rc
 
 
 @pytest.fixture
 def page():
-    _box, rc = solara.render(solara.AppLayout(children=[gui.Page()]), handle_error=False)
+    rc = render()
     yield rc
     rc.close()
 
@@ -61,7 +67,7 @@ def test_editor_shows_every_config_field_and_trait(page):
     labels = {w.label for w in page.find(v.TextField).widgets}
     labels |= {w.label for w in page.find(v.Select).widgets}
     assert {f.name for f in fields(Config)} <= labels
-    assert set(TRAIT_NAMES) <= labels
+    assert {f"pin: {name}" for name in TRAIT_NAMES} <= labels
 
 
 def test_step_advances_one_render_interval(page):
@@ -85,10 +91,41 @@ def test_play_runs_until_paused(page):
     _wait_for(lambda: step_count(page) >= 3)
     click(page, "❚❚")
     _wait_for(lambda: "paused" in status(page))
-    time.sleep(0.3)  # let a batch in flight finish
+    time.sleep(0.3)
     paused_at = step_count(page)
     time.sleep(0.5)
     assert step_count(page) == paused_at
+
+
+def test_pause_stops_a_batch_and_step_never_overlaps_it(monkeypatch):
+    calls, active, overlaps = [0], [0], [0]
+    real_step = MarketModel.step
+
+    def step(model):
+        active[0] += 1
+        overlaps[0] += active[0] > 1
+        try:
+            real_step(model)
+        finally:
+            active[0] -= 1
+            calls[0] += 1
+
+    monkeypatch.setattr(MarketModel, "step", step)
+    page = render()
+    try:
+        page.find(v.Slider, label="Play Interval: 100 ms").widget.v_model = 1
+        page.find(v.Slider, label="Render Interval: 1 steps").widget.v_model = 100
+        click(page, "▶")
+        _wait_for(lambda: calls[0] >= 150)
+        click(page, "❚❚")
+        at_pause = calls[0]
+        click(page, "Step")
+        assert 100 <= calls[0] - at_pause <= 101
+        time.sleep(0.3)
+        assert step_count(page) == calls[0]
+        assert overlaps[0] == 0
+    finally:
+        page.close()
 
 
 def test_play_stops_at_settlement(page):
@@ -125,13 +162,13 @@ def test_choosing_a_preset_loads_all_its_settings(page):
     assert status(page) == "Step 0 of 500 (paused)"
     assert page.find(v.TextField, label="n_agents").widget.v_model == "3"
     assert page.find(v.Select, label="network").widget.v_model == "watts_strogatz"
-    assert page.find(v.TextField, label="n_clues").widget.v_model == "5"
+    assert page.find(v.TextField, label="pin: n_clues").widget.v_model == "5"
 
 
 def test_an_invalid_pin_shows_why(page):
-    type_into(page, "n_clues", "[1, 2]")
+    type_into(page, "pin: n_clues", "[1, 2]")
     assert errors(page) == ["trait 'n_clues' has 2 values for 300 agents"]
-    type_into(page, "n_clues", "")
+    type_into(page, "pin: n_clues", "")
     assert errors(page) == []
 
 

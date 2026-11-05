@@ -17,6 +17,7 @@ charts need the order book, so the legacy AMM shows only the price, volume, and 
 
 from __future__ import annotations
 
+import threading
 import time
 
 import solara
@@ -37,7 +38,8 @@ class Session:
 
     Settings live in reactive variables so every input and chart rerenders when they
     change. `version` counts chart updates: the play loop bumps it after each batch of
-    steps, since stepping the model mutates it in place.
+    steps, since stepping the model mutates it in place. `lock` lets one thread at a
+    time step the run or draw it, since the play loop steps it in a worker thread.
     """
 
     def __init__(self) -> None:
@@ -55,6 +57,7 @@ class Session:
         self.play_interval = solara.reactive(PLAY_INTERVAL[3])
         self.render_interval = solara.reactive(RENDER_INTERVAL[3])
         self.version = solara.reactive(0)
+        self.lock = threading.Lock()
 
     def rebuild(
         self,
@@ -98,13 +101,15 @@ class Session:
     def set_pin(self, name: str, text: str) -> None:
         self.rebuild(pin_text={**self.pin_text.value, name: text})
 
-    def step(self, n: int) -> None:
-        """Advance the run up to n steps (stopping at settlement) and redraw once."""
-        model = self.model.value
-        for _ in range(n):
-            if model.settled:
-                break
-            model.step()
+    def step(self, n: int, while_playing: bool = False) -> None:
+        """Advance the run up to n steps (stopping at settlement, or at a pause when
+        `while_playing`) and redraw once."""
+        with self.lock:
+            model = self.model.value
+            for _ in range(n):
+                if model.settled or (while_playing and not self.playing.value):
+                    break
+                model.step()
         self.version.value += 1
 
     def play(self) -> None:
@@ -115,7 +120,7 @@ class Session:
             time.sleep(self.play_interval.value / 1000)
             if not self.playing.value or self.model.value is not model:
                 return
-            self.step(self.render_interval.value)
+            self.step(self.render_interval.value, while_playing=True)
         if self.model.value is model and model.settled:
             self.playing.value = False
 
@@ -216,7 +221,7 @@ def Settings(session: Session):
             )
             for name in TRAIT_NAMES:
                 solara.InputText(
-                    name,
+                    f"pin: {name}",
                     value=session.pin_text.value.get(name, ""),
                     on_value=lambda text, name=name: session.set_pin(name, text),
                 )
@@ -227,7 +232,8 @@ def Chart(session: Session, draw):
     """One live chart: redrawn whenever the run steps or is replaced."""
     version = session.version.value
     model = session.model.value
-    fig = draw(model)
+    with session.lock:
+        fig = draw(model)
     if fig is None:
         return
     solara.FigureMatplotlib(fig, format="png", dependencies=[version, id(model)])
