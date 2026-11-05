@@ -31,6 +31,16 @@ uv run python experiments/plot_run.py 20000 --market clob         # fee-free ord
 uv run python experiments/plot_run.py 20000 --disinfo 0.2           # with disinformation
 ```
 
+### Live GUI
+
+To watch a run as it plays, start the GUI and open the address it prints (http://localhost:8765; from WSL, open it in the Windows browser):
+
+```sh
+uv run solara run kalshi_model.gui
+```
+
+The sidebar has Reset, play/pause, and Step, a play interval (milliseconds between updates), and a render interval (steps per update): raise the render interval to play faster. Below them are the presets (Levels 0 to 2, where Level 2 is the default; the E1 fee-free CLOB; the E2 disinformation ratios; and the E3 manipulators), the seed, every `Config` field by section, and a pin for each agent trait (a number for every agent, or a list such as `[20, 0]` with one per agent). Any change restarts the run at step 0; an invalid setting shows why and leaves the current run alone. The charts show the price against `P*`, volume, the bid, ask, and spread, book depth and the market maker, and the network colored by who knows the latest news or fake clue.
+
 ### Custom configurations
 
 To explore small or simple systems, write a TOML file and pass it with `--config`. It may set `market` (`kalshi`, `clob`, or the legacy `amm`, which no experiment uses), any `Config` field, and a `[traits]` table that pins agent traits to exact values, either one value for every agent or a list with one value per agent. Unpinned traits keep their defaults (informedness and cash drawn, the rest one value for all). `n_clues_total = 0` removes all information, `mean_degree = 0` removes the network, and `mm_size = 0` turns off the market maker. `configs/default.toml` holds the frozen defaults: every setting, with a short note on each. `Config` reads it at import, so editing a value there changes the default everywhere (the model refuses to start if a setting is missing, unknown, or invalid). Copy it as a starting point for a custom configuration, which needs to list only what differs. `configs/level_*.toml` are small demos of the model, and `configs/test_*.toml` are fixtures used by the tests:
