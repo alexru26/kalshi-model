@@ -1,4 +1,4 @@
-"""Per-run metrics for the experiments (PLAN.md Section 3).
+"""Per-run metrics for the experiments.
 
 `run_metrics` turns one finished run into a flat dict of numbers: one row of
 `results/*.csv`, since each run is one data point. Prices and gaps are in cents and
@@ -32,7 +32,7 @@ from kalshi_model.orderbook import BUY
 NEWS_WINDOW = 300
 """Steps after a news release over which the price response is measured. News comes
 about every 95 steps, so later clues fall inside the window, but their directions are
-independent of this clue's, so they add only noise to the mean move. Step 8 found the
+independent of this clue's, so they add only noise to the mean move. Earlier runs found the
 mean move still growing at 90 steps."""
 RESPONSE_LAGS = (0, 1, 2, 3, 5, 7, 10, 15, 20, 25, 30, 40, 50, 60, 75, 90, 120, 150, 200, 250, 300)
 NEAR_FIFTY = (40.0, 60.0)
@@ -182,7 +182,7 @@ def expected_pnl(model: MarketModel) -> np.ndarray:
 
     Without disinformation P* is the exact probability of YES given everything the
     market knows, so this has the same expectation as the realized P&L with far less
-    outcome luck (Step 8b). With fakes, trades carry information about the outcome
+    outcome luck. With fakes, trades carry information about the outcome
     (fakes always point against it), so this would be biased: use it only without them.
     """
     y, p_star = float(model.world.y), model.p_star
@@ -305,7 +305,7 @@ def _network(model: MarketModel) -> dict[str, float]:
     }
 
 
-# E3: manipulation (PLAN.md Sections 2.3 and 3).
+# E3: manipulation.
 
 DISTORTION_LAGS = (0, 1, 2, 5, 10, 20, 30, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1000)
 """Steps after `manip_start` at which the paired distortion is recorded."""

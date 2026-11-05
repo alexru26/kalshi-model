@@ -1,11 +1,10 @@
 """E2: information spread. A disinformation sweep on the Holme-Kim network.
 
 Ratios 0, 0.05, 0.1, 0.2, 0.5 (0, 1, 2, 4, 10 fakes). Distortion is the signed gap to
-P* in the fakes' direction minus the same seed's gap without disinformation (ratio 0;
-PLAN.md Section 3).
+P* in the fakes' direction minus the same seed's gap without disinformation (ratio 0).
 
 Writes results/e2_information.csv (one row per run) and .json (commit, seeds,
-configs), then prints each prediction in PREDICTIONS.md against the data. `summary`
+configs), then prints each prediction against the data. `summary`
 reprints from the saved CSV without rerunning.
 
 Usage: uv run python experiments/e2_information.py [number of seeds | summary]

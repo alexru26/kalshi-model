@@ -1,4 +1,4 @@
-"""Check the frozen Config defaults against the Step 7 patterns on fresh seeds.
+"""Check the frozen Config defaults against the calibration patterns on fresh seeds.
 
 Usage: uv run python experiments/validate_defaults.py [first seed] [number of seeds]
 """

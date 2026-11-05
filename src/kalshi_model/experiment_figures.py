@@ -1,4 +1,4 @@
-"""Figures for E1 to E3, drawn from the saved results (PLAN.md Section 4).
+"""Figures for E1 to E3, drawn from the saved results.
 
 Each figure reads only `results/<experiment>.csv` (through `experiment.load`), so it can
 be redrawn without rerunning anything. Every mark is a mean over seeds with its 95%

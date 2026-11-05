@@ -1,7 +1,7 @@
-"""E1: Kalshi rules. CLOB vs Kalshi on shared seeds (PLAN.md Section 1).
+"""E1: Kalshi rules. CLOB vs Kalshi on shared seeds.
 
 Writes results/e1_rules.csv (one row per run) and .json (commit, seeds, configs), then
-prints each prediction in PREDICTIONS.md against the data. `summary` reprints from the
+prints each prediction against the data. `summary` reprints from the
 saved CSV without rerunning.
 
 Usage: uv run python experiments/e1_rules.py [number of seeds | summary]

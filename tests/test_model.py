@@ -152,7 +152,7 @@ def test_fully_informed_market_that_ignores_the_price_converges_to_p_star():
 
 def test_fully_informed_market_that_reads_the_price_double_counts_it():
     # Agents who already know everything still add the price as others' evidence, so
-    # they double count (PLAN.md Section 2.2). With market_trust 80 and 80 clues known,
+    # they double count. With market_trust 80 and 80 clues known,
     # w_market = 0.5 and beliefs settle where logit(price) = L + 0.5 logit(price): at
     # twice P*'s log-odds.
     for seed in range(4):
@@ -170,7 +170,7 @@ def test_uninformed_market_stays_at_fifty_cents():
 
 def test_default_price_moves_toward_p_star(default_runs):
     # The price moves toward P* (its logit slope on P* is positive and below 1 at the
-    # Step 3 informedness, since most agents know little).
+    # default informedness, since most agents know little).
     final_price = np.array([m.price for m in default_runs])
     final_p_star = np.array([m.p_star for m in default_runs])
     slope = np.polyfit(
@@ -187,7 +187,7 @@ def test_default_price_moves_toward_p_star(default_runs):
 
 def test_informed_agents_earn_more_than_uninformed(default_runs):
     # P&L valued at P*: the same expectation as realized P&L without fakes, without the
-    # luck of the outcome (the Step 7 informed-earn pattern).
+    # luck of the outcome (the informed-earn calibration pattern).
     gaps = []
     for model in default_runs:
         pnl = expected_pnl(model)
@@ -196,7 +196,7 @@ def test_informed_agents_earn_more_than_uninformed(default_runs):
     assert np.mean(gaps) > 0
 
 
-# The order book (Step 5)
+# The order book
 
 
 @pytest.fixture(scope="module")
@@ -216,7 +216,7 @@ def test_kalshi_runs_keep_everyone_solvent_and_conserve_money(kalshi_runs):
 
 
 def test_market_maker_keeps_quoting_and_empty_book_steps_are_rare(kalshi_runs):
-    # The Step 7 book-filled pattern: at most 2% of steps empty on average over seeds.
+    # The book-filled calibration pattern: at most 2% of steps empty on average over seeds.
     shares = []
     for model in kalshi_runs:
         df = model.datacollector.get_model_vars_dataframe()
@@ -244,7 +244,7 @@ def test_kalshi_price_moves_toward_p_star(kalshi_runs):
 
 
 def test_fee_free_book_collects_nothing():
-    # Whether fees cut volume is an E1 result (Step 8), not a model rule.
+    # Whether fees cut volume is an E1 result, not a model rule.
     kalshi = run(Config(n_steps=600, n_clues_total=70), 4)
     fee_free = run(clob_config(n_steps=600, n_clues_total=70), 4)
     assert fee_free.book.fees_collected == 0

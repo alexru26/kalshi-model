@@ -218,7 +218,7 @@ def test_deal_rejects_negative_counts():
         deal_private_clues([-1], 60, make_streams(0)["deal"])
 
 
-# Step 2 "done when": 10,000 worlds
+# 10,000 worlds
 
 
 @pytest.fixture(scope="module")
