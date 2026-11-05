@@ -97,13 +97,13 @@ Every other trait is one value shared by all agents, since each works through it
 
 | Trait | Controls | Value |
 |---|---|---|
-| `w_hearsay` | weight on fakes heard from neighbors | 0.39 (no data anchor) |
-| `market_trust` | how many clues the agent thinks the price is worth | 35.3 |
+| `w_hearsay` | weight on fakes heard from neighbors | 0.4 (no data anchor) |
+| `market_trust` | how many clues the agent thinks the price is worth | 35 |
 | `w_depth` | log-odds nudge from book imbalance | 0.1 (no data anchor) |
-| `noise` | belief error per turn (log-odds) | 0.0506 |
-| `min_edge` | smallest edge (cents) worth acting on | 2.22c |
-| `patience` | chance of posting a resting order instead of waiting | 0.902 |
-| `kelly_frac` | fraction of the Kelly bet placed | 0.274 |
+| `noise` | belief error per turn (log-odds) | 0.05 |
+| `min_edge` | smallest edge (cents) worth acting on | 2c |
+| `patience` | chance of posting a resting order instead of waiting | 0.90 |
+| `kelly_frac` | fraction of the Kelly bet placed | 0.275 |
 | `g` | probability weighting (1 = none, below 1 = overweights longshots) | 0.8, from lab estimates (Tversky & Kahneman 1992; Gonzalez & Wu 1999) |
 
 The calibrated values (all but `w_hearsay`, `w_depth`, and `g`) come from the Step 8c calibration. Any trait can still be pinned per agent in a custom configuration.
@@ -190,7 +190,7 @@ Defaults: 300 agents, T = 2000 steps, 100 seeds per configuration (never fewer t
 
 ## 4. Implementation steps
 
-Market mechanics (`fees.py`, `orderbook.py`, and `lmsr.py` for the legacy AMM) are plain Python with no Mesa dependency; Mesa covers agents, the model step, data collection, and batch runs. Figures are drawn from `results/*.csv`; `experiments/plot_run.py` charts one seed's price against `P*` with clue releases, volume, and spread, plus its network colored by each agent's P&L.
+Market mechanics (`fees.py`, `orderbook.py`, and `lmsr.py` for the legacy AMM) are plain Python with no Mesa dependency; Mesa covers agents, the model step, data collection, and batch runs. Figures are drawn from `results/*.csv` by `experiments/figures.py` into `results/figures/`; `experiments/plot_run.py` charts one seed's price against `P*` with clue releases, volume, and spread, plus its network colored by each agent's P&L.
 
 1. **Skeleton and fees** (done). Repo, `Config`, `fees.py` in integer cents. *Done when* fee tests pass (e.g. 1 contract at 50c pays 2c, 100 contracts at 5c pay 34c, `fee(P) == fee(100 - P)`).
 2. **World and `P*`** (done). *Done when* `P*` matches hand-made cases and in 10,000 simulated worlds at least 90% of final `P*` fall between 10% and 90%.
@@ -209,7 +209,7 @@ Market mechanics (`fees.py`, `orderbook.py`, and `lmsr.py` for the legacy AMM) a
     - The price ignored news (weighting a news clue at 0.21 of its value versus 0.84 for a private clue), because news reached most agents secondhand as hearsay, which the cash-rich informed discount. Fix: true news counts as own evidence; only fakes are hearsay.
 
     Then recalibrate with patterns 5 and 6 required and `cash_rho`, `noise_delta`, and wider `market_trust` and `noise_scale` ranges in the search, and rerun E1 and E2 on the same seeds. The final search accepted 101 of 1,500 candidates; on 480 fresh seeds the frozen setting's slope is 1.10 to 1.18, and the informed earn on three of four seed sets (+$66 per agent pooled). `PREDICTIONS.md` stays unchanged (its predictions concern mechanisms); `RESULTS.md` keeps a short record of the first model's results and why the model changed. *Done when* the frozen default passes every pattern on fresh seeds and `RESULTS.md` reports each prediction for the revised model.
-8c. **Simplify the traits** (calibrated; E1 to E3 not yet rerun). Only informedness and cash vary across agents; every other trait is one value (Section 2.2), so the report justifies two distributions instead of eleven, and the links of `w_hearsay`, `noise`, and `patience` to informedness are gone. The single values start at the means of the Step 8b distributions. The `noise` link was added in Step 8b so the informed would have noise traders to profit from. Before recalibration, on 48 fresh seeds, every pattern passes except informed-earn: the best-informed tenth lose $91 per agent, and agents with no clues about break even. The recalibration over the new search space (`calibration.SPACE`, 1,500 candidates on 8 seeds) accepted 102. The frozen setting passes every pattern on four fresh sets of 120 seeds (480 in all): the informed tenth earn $86 to $103 per agent in every set while agents with no clues lose $14 to $16, and the calibration slope is 1.27 to 1.33, more underconfident than Step 8b's 1.10 to 1.18 but inside the 0.8-1.4 band. Next, rerun E1 to E3. *Done when* the frozen default passes every pattern on fresh seeds and `RESULTS.md` reports each prediction for the simplified model.
+8c. **Simplify the traits** (done). Only informedness and cash vary across agents; every other trait is one value (Section 2.2), so the report justifies two distributions instead of eleven, and the links of `w_hearsay`, `noise`, and `patience` to informedness are gone. The single values start at the means of the Step 8b distributions. The `noise` link was added in Step 8b so the informed would have noise traders to profit from. Before recalibration, on 48 fresh seeds, every pattern passes except informed-earn: the best-informed tenth lose $91 per agent, and agents with no clues about break even. The recalibration over the new search space (`calibration.SPACE`, 1,500 candidates on 8 seeds) accepted 102. The frozen setting passes every pattern on four fresh sets of 120 seeds (480 in all): the informed tenth earn $86 to $103 per agent in every set while agents with no clues lose $14 to $16, and the calibration slope is 1.27 to 1.33, more underconfident than Step 8b's 1.10 to 1.18 but inside the 0.8-1.4 band. The defaults were then rounded in `configs/default.toml` (passing every pattern on the same seeds), and E1 to E3 were rerun on them: E1.4, E1.5, and E3.2's depth-reading part no longer hold or cannot be tested, since they leaned on trait differences Step 8c removed (`RESULTS.md`). *Done when* the frozen default passes every pattern on fresh seeds and `RESULTS.md` reports each prediction for the simplified model.
 9. **Manipulator; run E3** (done). Pump-and-dump and spoofing layers and the honest twin (`src/kalshi_model/manipulator.py`); predictions first, then `experiments/e3_manipulation.py` writes `results/e3_manipulation.csv`. *Done when* invariants hold with the manipulator present and `RESULTS.md` reports each E3 prediction against the data.
 10. **Kalshi calibration check** (Section 3), including the `g = 1` rerun.
 11. **Robustness.** Rerun the key paired comparisons of E1 to E3 on the spread-out set of accepted calibrations from Step 7 and report how often each effect's sign holds (appendix figure).

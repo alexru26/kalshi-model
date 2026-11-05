@@ -20,6 +20,7 @@ Predictions are written before each experiment runs (`PREDICTIONS.md`) and judge
 uv run python experiments/e1_rules.py         # E1: CLOB vs Kalshi
 uv run python experiments/e2_information.py   # E2: disinformation ratios
 uv run python experiments/e3_manipulation.py  # E3: honest twin vs pump and dump vs spoofing
+uv run python experiments/figures.py          # redraw results/figures/ from the saved results
 ```
 
 To see one run, `experiments/plot_run.py` draws its price over time against `P*`, with each news and fake clue's release marked, plus volume and (order book only) the spread. A second PNG, with `_network` added to its name, draws the agents' social network with each agent colored by its P&L, and plots P&L against each agent's links and private clues. Both go to `figures/` (gitignored):
