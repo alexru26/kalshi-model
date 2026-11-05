@@ -168,7 +168,9 @@ def test_reload_clears_the_old_runs_shapes_in_the_browser():
         apply(figure, chart.update(pumped))
         assert len(figure.layout.shapes) > 0
         browser = {"shapes": [s.to_plotly_json() for s in figure.layout.shapes]}
-        figure._send_relayout_msg = lambda layout, source_view_id=None: browser.update(layout)
+        figure._send_relayout_msg = lambda layout, source_view_id=None, browser=browser: (
+            browser.update(layout)
+        )
         reload(figure, chart, fresh)
         apply(figure, chart.update(fresh))
         assert browser["shapes"] == [s.to_plotly_json() for s in figure.layout.shapes]

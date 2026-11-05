@@ -10,8 +10,9 @@ grouped by section, and a pin for each agent trait. Any change rebuilds the run 
 0 with the new settings and pauses it; an invalid setting shows its error and leaves
 the current run as it was.
 
-The main area shows Plotly charts (`live_charts`), each built once per run and then fed
-new data in place: the price against P*, volume, the bid, ask, and spread, book depth
+The main area shows Plotly charts (`live_charts`), each one widget for the whole session:
+a new run swaps its traces and layout in, and each update feeds new data in place. The
+charts show the price against P*, volume, the bid, ask, and spread, book depth
 and the market maker, and the network colored by who knows the latest clue. Order book
 charts need the order book, so the legacy AMM shows only the price, volume, and network.
 E3 runs add the manipulator's position and P&L, its orders against the book, and, for
