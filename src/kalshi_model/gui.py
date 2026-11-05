@@ -285,7 +285,10 @@ def LiveChart(session: Session, chart: Chart):
         apply(figure, update)
 
     solara.use_effect(refresh, [version, run, figure])
-    solara.Column(children=[figure, ResizeWatcher.element()], style={"width": "100%"})
+    # Keyed per figure so each new figure gets a newly mounted watcher: the watcher only
+    # fires on a width change, and a rebuild leaves the column's width as it was.
+    watcher = ResizeWatcher.element().key(f"resize-{id(figure)}")
+    solara.Column(children=[figure, watcher], style={"width": "100%"})
 
 
 @solara.component

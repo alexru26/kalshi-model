@@ -191,6 +191,32 @@ def test_seed_change_restarts_the_run(page):
     assert step_count(page) == 0
 
 
+def watchers(rc) -> set[str]:
+    """The model ids of the charts' resize watchers, as the browser sees them."""
+    return {w.model_id for w in rc.find(gui.ResizeWatcher).widgets}
+
+
+@pytest.mark.parametrize(
+    "rebuild",
+    [
+        lambda rc: click(rc, "Reset"),
+        lambda rc: type_into(rc, "seed", "7"),
+        lambda rc: choose(rc, "Preset", "E3: spoofing"),
+    ],
+    ids=["reset", "seed", "same-chart-set-preset"],
+)
+def test_every_new_chart_gets_a_fresh_resize_watcher(page, rebuild):
+    # A watcher refits its chart only when it mounts in the browser, so each new
+    # figure needs a newly mounted watcher or it stays at Plotly's 700 px default.
+    choose(page, "Preset", "E3: pump and dump")
+    before = watchers(page)
+    assert len(before) == len(charts(page))
+    rebuild(page)
+    after = watchers(page)
+    assert len(after) == len(charts(page))
+    assert before.isdisjoint(after)
+
+
 def test_amm_drops_the_order_book_charts(page):
     type_into(page, "taker_fee_bp", "0")
     choose(page, "mechanism", "amm")
