@@ -662,8 +662,13 @@ def widget(chart: Chart, run: Run) -> go.FigureWidget:
 
 
 def reload(figure: go.FigureWidget, chart: Chart, run: Run) -> None:
-    """Point an existing widget at a new run: its traces and layout replaced in place."""
+    """Point an existing widget at a new run: its traces and layout replaced in place.
+
+    The old shapes are cleared first. Assigning a layout only relayouts the keys it
+    has, and a layout without shapes has no `shapes` key, so the browser would keep
+    the old run's phase bands and release guides."""
     fig = _figure(chart, run)
+    figure.layout.shapes = ()
     figure.data = ()
     figure.add_traces(fig.data)
     figure.layout = fig.layout

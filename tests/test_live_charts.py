@@ -160,6 +160,20 @@ def test_manipulator_charts_shade_its_phases():
         assert len(figure.layout.shapes) == len(phase_spans(run.model))
 
 
+def test_reload_clears_the_old_runs_shapes_in_the_browser():
+    pumped = _run("E3: pump and dump", 1300)
+    fresh = _run("E3: spoofing", 0)
+    for chart in (ManipulatorChart(), TwinChart(), OrdersChart(), PriceChart()):
+        figure = widget(chart, pumped)
+        apply(figure, chart.update(pumped))
+        assert len(figure.layout.shapes) > 0
+        browser = {"shapes": [s.to_plotly_json() for s in figure.layout.shapes]}
+        figure._send_relayout_msg = lambda layout, source_view_id=None: browser.update(layout)
+        reload(figure, chart, fresh)
+        apply(figure, chart.update(fresh))
+        assert browser["shapes"] == [s.to_plotly_json() for s in figure.layout.shapes]
+
+
 def test_twin_gap_is_zero_before_the_manipulation_starts():
     run = _run("E3: spoofing", 1100)
     figure = widget(TwinChart(), run)
