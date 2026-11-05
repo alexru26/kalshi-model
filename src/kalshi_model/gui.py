@@ -30,7 +30,15 @@ import solara.lab
 import traitlets
 
 from kalshi_model import live
-from kalshi_model.live_charts import MAIN_CHARTS, MANIPULATOR_CHARTS, Chart, Run, apply, widget
+from kalshi_model.live_charts import (
+    MAIN_CHARTS,
+    MANIPULATOR_CHARTS,
+    Chart,
+    Run,
+    apply,
+    reload,
+    widget,
+)
 from kalshi_model.model import MarketModel
 from kalshi_model.traits import TRAIT_NAMES
 
@@ -76,6 +84,20 @@ class Session:
         self.render_interval = solara.reactive(RENDER_INTERVAL[3])
         self.version = solara.reactive(0)
         self.lock = threading.Lock()
+        self.figures: dict[Chart, object] = {}
+        """One Plotly widget per chart, made the first time the chart applies and then
+        kept (reloaded for each new run), so plotly.js reaches the browser once."""
+        self._loaded: dict[Chart, Run] = {}
+
+    def figure(self, chart: Chart, run: Run):
+        """The chart's widget, laid out for `run`."""
+        with self.lock:
+            if chart not in self.figures:
+                self.figures[chart] = widget(chart, run)
+            elif self._loaded[chart] is not run:
+                reload(self.figures[chart], chart, run)
+            self._loaded[chart] = run
+        return self.figures[chart]
 
     def rebuild(
         self,
@@ -274,41 +296,50 @@ module.exports = {
 
 @solara.component
 def LiveChart(session: Session, chart: Chart):
-    """One chart: a Plotly widget built for each new run, fed new data on every update."""
+    """One chart: its session-long Plotly widget, fed new data on every update, and
+    hidden while the run has nothing for it (no order book, no manipulator, no twin)."""
     run = session.run.value
     version = session.version.value
-    figure = solara.use_memo(lambda: widget(chart, run), [run, chart])
+    shown = chart.applies(run)
+    figure = session.figure(chart, run) if shown else session.figures.get(chart)
 
     def refresh() -> None:
+        if not shown:
+            return
         with session.lock:
             update = chart.update(run)
         apply(figure, update)
 
-    solara.use_effect(refresh, [version, run, figure])
-    # Keyed per figure so each new figure gets a newly mounted watcher: the watcher only
-    # fires on a width change, and a rebuild leaves the column's width as it was.
-    watcher = ResizeWatcher.element().key(f"resize-{id(figure)}")
-    solara.Column(children=[figure, watcher], style={"width": "100%"})
+    solara.use_effect(refresh, [version, run])
+    if figure is None:  # never shown yet
+        return
+    # A plain div: solara.Column's `d-flex !important` would override display: none.
+    solara.Div(
+        children=[figure, ResizeWatcher.element()],
+        style={"width": "100%"} if shown else {"display": "none"},
+    )
+
+
+MANIPULATOR_COLUMNS = (
+    (MANIPULATOR_CHARTS[0], MANIPULATOR_CHARTS[1]),
+    (MANIPULATOR_CHARTS[2],),
+)
+"""Position and P&L above the twin chart on the left, the orders chart on the right."""
 
 
 @solara.component
 def Charts(session: Session):
+    # Every chart stays in the page, hidden when it does not apply, so its widget is
+    # never torn down and rebuilt.
     run = session.run.value
-    with solara.Columns([1, 1]):
-        for column in MAIN_CHARTS:
-            with solara.Column():
-                for chart in column:
-                    if chart.applies(run):
+    for columns in (MAIN_CHARTS, MANIPULATOR_COLUMNS):
+        with solara.Columns([1, 1]):
+            for column in columns:
+                with solara.Column():
+                    for chart in column:
                         LiveChart(session, chart)
     if run.model.book is None:
         solara.Info("The legacy AMM has no order book: no bid, ask, or depth charts.")
-    manipulator = [chart for chart in MANIPULATOR_CHARTS if chart.applies(run)]
-    if manipulator:
-        with solara.Columns([1, 1]):
-            for i in range(2):
-                with solara.Column():
-                    for chart in manipulator[i::2]:
-                        LiveChart(session, chart)
 
 
 @solara.component

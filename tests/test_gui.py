@@ -55,8 +55,22 @@ def errors(rc) -> list[str]:
 
 
 def charts(rc) -> list[str]:
-    """The titles of the charts on the page, in order."""
-    return [w.layout.title.text for w in rc.find(go.FigureWidget).widgets]
+    """The titles of the charts shown on the page, in order (hidden ones left out)."""
+    shown = []
+
+    def walk(widget, hidden: bool) -> None:
+        if isinstance(widget, go.FigureWidget):
+            if not hidden:
+                shown.append(widget.layout.title.text)
+            return
+        style = str(getattr(widget, "style_", "") or "").replace(" ", "")
+        hidden = hidden or "display:none" in style
+        for child in getattr(widget, "children", ()) or ():
+            if not isinstance(child, str):
+                walk(child, hidden)
+
+    walk(rc.find(v.Html).widget, False)
+    return shown
 
 
 def short(title: str) -> str:
@@ -191,9 +205,8 @@ def test_seed_change_restarts_the_run(page):
     assert step_count(page) == 0
 
 
-def watchers(rc) -> set[str]:
-    """The model ids of the charts' resize watchers, as the browser sees them."""
-    return {w.model_id for w in rc.find(gui.ResizeWatcher).widgets}
+def figure_ids(rc) -> set[int]:
+    return {id(w) for w in rc.find(go.FigureWidget).widgets}
 
 
 @pytest.mark.parametrize(
@@ -202,19 +215,23 @@ def watchers(rc) -> set[str]:
         lambda rc: click(rc, "Reset"),
         lambda rc: type_into(rc, "seed", "7"),
         lambda rc: choose(rc, "Preset", "E3: spoofing"),
+        lambda rc: choose(rc, "Preset", "Level 2 (default)"),
     ],
-    ids=["reset", "seed", "same-chart-set-preset"],
+    ids=["reset", "seed", "preset", "back-to-default"],
 )
-def test_every_new_chart_gets_a_fresh_resize_watcher(page, rebuild):
-    # A watcher refits its chart only when it mounts in the browser, so each new
-    # figure needs a newly mounted watcher or it stays at Plotly's 700 px default.
+def test_a_rebuild_reuses_the_chart_widgets(page, rebuild):
+    # Each new Plotly widget sends plotly.js (about 5 MB) to the browser, which made
+    # every edit take seconds, so a rebuild must point the same widgets at the new run.
     choose(page, "Preset", "E3: pump and dump")
-    before = watchers(page)
-    assert len(before) == len(charts(page))
+    click(page, "Step")
+    before = figure_ids(page)
     rebuild(page)
-    after = watchers(page)
-    assert len(after) == len(charts(page))
-    assert before.isdisjoint(after)
+    assert figure_ids(page) == before
+    assert step_count(page) == 0
+    price = next(
+        w for w in page.find(go.FigureWidget).widgets if w.layout.title.text == "Price vs P*"
+    )
+    assert len(price.data[0].x) == 0  # the new run's empty traces, not the old run's
 
 
 def test_amm_drops_the_order_book_charts(page):

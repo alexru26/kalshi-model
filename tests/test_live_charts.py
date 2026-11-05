@@ -19,7 +19,9 @@ from kalshi_model.live_charts import (
     TwinChart,
     apply,
     band,
+    legend_rows,
     phase_spans,
+    reload,
     widget,
 )
 from kalshi_model.metrics import manipulator_pnl_at_p_star
@@ -166,3 +168,40 @@ def test_twin_gap_is_zero_before_the_manipulation_starts():
     start = run.model.config.manip_start
     assert np.all(gap[: start - 1] == 0)
     assert np.any(gap[start:] != 0)
+
+
+@pytest.mark.parametrize(
+    ("names", "rows"),
+    [
+        ([], 0),
+        (["price", "P* (benchmark)"], 1),
+        (["honest twin's price", "price", "a", "b", "c"], 3),
+    ],
+)
+def test_legend_rows_size_every_entry_like_the_widest(names, rows):
+    assert legend_rows(names) == rows
+
+
+def test_wrapping_legends_get_room_above_the_plot():
+    run = _run("E3: pump and dump", 0)
+    one_row = widget(PriceChart(), run).layout.margin.t
+    three_rows = widget(TwinChart(), run).layout.margin.t  # 5 entries, 2 per row
+    assert three_rows - one_row == 2 * 22
+
+
+def test_reload_points_a_widget_at_a_new_run():
+    plain = _run("Level 2 (default)", 30)
+    figure = widget(PriceChart(), plain)
+    apply(figure, PriceChart().update(plain))
+    fakes = _run("E2: disinformation ratio 0.5", 0)
+    reload(figure, PriceChart(), fakes)
+    assert [t.name for t in figure.data] == [
+        "price",
+        "P* (benchmark)",
+        "news release",
+        "fake release",
+    ]
+    assert len(figure.data[0].x) == 0
+    apply(figure, PriceChart().update(fakes))  # the update matches the new traces
+    reload(figure, PriceChart(), plain)
+    assert len(figure.data) == 3

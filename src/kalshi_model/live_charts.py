@@ -622,26 +622,51 @@ CONFIG = {"responsive": True, "displaylogo": False}
 """Plotly config: fill the column and follow its width; no Plotly logo."""
 
 
-LEGEND_PER_ROW = 3
-"""Legend entries that fit on one row of a chart in a half-width column."""
+LEGEND_WIDTH = 440
+"""Pixels a legend row can use in a half-width column (the plot area's width)."""
+
+
+def legend_rows(names: list[str]) -> int:
+    """Rows a horizontal legend can wrap to, sized as if every entry were as wide as
+    the widest (its symbol, ~40 px, plus ~7 px per character): Plotly sometimes wraps
+    sooner than the entries' own widths suggest, and too much room beats a clipped
+    title."""
+    if not names:
+        return 0
+    widest = 40 + 7 * max(len(name) for name in names)
+    per_row = max(1, int(LEGEND_WIDTH // widest))
+    return -(-len(names) // per_row)
 
 
 def fit_top_margin(fig: go.Figure) -> None:
     """Leave room above the plot for the title's lines and the legend's rows, so a
     legend that wraps never runs into the title."""
-    entries = sum(1 for t in fig.data if t.showlegend is not False and t.name)
-    rows = -(-entries // LEGEND_PER_ROW)
+    names = [t.name for t in fig.data if t.showlegend is not False and t.name]
     lines = 2 if fig.layout.title.subtitle.text else 1
-    fig.update_layout(margin_t=24 + 20 * lines + 22 * rows)
+    fig.update_layout(margin_t=24 + 20 * lines + 22 * legend_rows(names))
+
+
+def _figure(chart: Chart, run: Run) -> go.Figure:
+    fig = chart.build(run)
+    fit_top_margin(fig)
+    return fig
 
 
 def widget(chart: Chart, run: Run) -> go.FigureWidget:
-    """A live Plotly widget for one chart of a run."""
-    fig = chart.build(run)
-    fit_top_margin(fig)
-    figure = go.FigureWidget(fig)
+    """A live Plotly widget for one chart, laid out for a run. The GUI makes one per
+    chart and keeps it for the whole session (`reload` points it at later runs): each
+    new widget sends the whole plotly.js library to the browser, about 5 MB."""
+    figure = go.FigureWidget(_figure(chart, run))
     figure._config = CONFIG
     return figure
+
+
+def reload(figure: go.FigureWidget, chart: Chart, run: Run) -> None:
+    """Point an existing widget at a new run: its traces and layout replaced in place."""
+    fig = _figure(chart, run)
+    figure.data = ()
+    figure.add_traces(fig.data)
+    figure.layout = fig.layout
 
 
 def apply(widget: go.FigureWidget, update: Update) -> None:
