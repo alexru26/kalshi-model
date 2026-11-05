@@ -50,8 +50,8 @@ LAYER_PHASES = (PUMP, HOLD, DUMP, SPOOF)
 
 
 def manipulator_traits(config: Config, cash: int) -> dict[str, float]:
-    """The manipulator's traits: the population's single values (Section 2.2,
-    `traits.py`), `manip_n_clues`, `w_depth = 0`, and the given cash."""
+    """The manipulator's traits: the population's single values
+    (`traits.py`), `manip_n_clues`, `w_depth = 0`, and the given cash."""
     return {
         "n_clues": config.manip_n_clues,
         "w_hearsay": config.w_hearsay,
