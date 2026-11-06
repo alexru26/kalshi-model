@@ -94,7 +94,10 @@ def test_editor_shows_every_config_field_and_trait(page):
     labels = {w.label for w in page.find(v.TextField).widgets}
     labels |= {w.label for w in page.find(v.Select).widgets}
     assert {f.name for f in fields(Config)} <= labels
-    assert {f"pin: {name}" for name in TRAIT_NAMES} <= labels
+    pins = {label for label in labels if label.startswith("pin: ")}
+    assert pins == {"pin: n_clues", "pin: cash", "pin: activity"}
+    # Every other trait is a Config field, edited once under Agent traits.
+    assert set(TRAIT_NAMES) - {"n_clues", "cash", "activity"} <= labels
 
 
 def test_step_advances_one_render_interval(page):

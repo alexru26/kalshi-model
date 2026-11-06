@@ -99,6 +99,11 @@ CHOICES: dict[str, tuple[str, ...]] = {
 FIELD_TYPES: dict[str, type] = {f.name: f.type for f in fields(Config)}
 """Each field's type: int, float, or str (the dataclass annotations are real types)."""
 
+PIN_TRAITS: tuple[str, ...] = tuple(name for name in TRAIT_NAMES if name not in FIELD_TYPES)
+"""The traits the GUI offers pins for: those with no `Config` field of their own
+(n_clues, cash, activity). The others are one population value set by their field
+under "Agent traits", so a pin would only repeat it."""
+
 DEFAULT_SEED = 20000
 """The seed the GUI starts on: the first seed of `plot_run.py`."""
 

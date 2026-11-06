@@ -6,9 +6,9 @@ Launch it with `uv run solara run kalshi_model.gui` and open the address it prin
 The sidebar holds the run controls, laid out like Mesa's SolaraViz: Reset, play/pause,
 and Step, a play interval (milliseconds between updates), and a render interval (steps
 per update). Below them are the presets (`live.PRESETS`), the seed, every `Config` field
-grouped by section, and a pin for each agent trait. Any change rebuilds the run at step
-0 with the new settings and pauses it; an invalid setting shows its error and leaves
-the current run as it was.
+grouped by section, and pins for the traits with no field of their own
+(`live.PIN_TRAITS`). Any change rebuilds the run at step 0 with the new settings and
+pauses it; an invalid setting shows its error and leaves the current run as it was.
 
 The main area shows Plotly charts (`live_charts`), each one widget for the whole session:
 a new run swaps its traces and layout in, and each update feeds new data in place. The
@@ -41,7 +41,6 @@ from kalshi_model.live_charts import (
     widget,
 )
 from kalshi_model.model import MarketModel
-from kalshi_model.traits import TRAIT_NAMES
 
 PLAY_INTERVAL = (1, 500, 10, 100)
 """Play interval slider in milliseconds: min, max, step, start (Mesa's SolaraViz values)."""
@@ -257,11 +256,12 @@ def Settings(session: Session):
                     FieldInput(session, name)
         with solara.Details("Pinned traits"):
             solara.Markdown(
-                "Blank leaves a trait drawn from its distribution (n_clues, cash) or at "
-                "its config value. A number pins it for every agent; a list such as "
-                "`[20, 0]` gives one value per agent."
+                "Blank leaves n_clues and cash drawn from their distributions and gives "
+                "every agent the same activity (chance of a turn). A number pins a trait "
+                "for every agent; a list such as `[20, 0]` gives one value per agent. "
+                "The other traits are set under Agent traits."
             )
-            for name in TRAIT_NAMES:
+            for name in live.PIN_TRAITS:
                 solara.InputText(
                     f"pin: {name}",
                     value=session.pin_text.value.get(name, ""),
