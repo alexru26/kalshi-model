@@ -5,10 +5,12 @@ description = "An agent-based model of one Kalshi binary prediction market."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "anywidget>=0.9",
     "matplotlib>=3.9",
-    "mesa>=3.5,<3.6",
+    "mesa[viz]>=3.5,<3.6",
     "networkx>=3",
     "numpy>=2",
+    "plotly>=6",
 ]
 
 [dependency-groups]
