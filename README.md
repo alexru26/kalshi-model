@@ -2,7 +2,7 @@
 
 An agent-based model of one Kalshi binary prediction market. 300 traders hold private clues about a YES/NO outcome, hear news over a social network, and trade one YES contract in a CLOB with Kalshi's fee rule and a market-maker component. Every run has an exact benchmark, `P*`: the probability of YES given every real clue any agent holds. Prices are scored against it.
 
-Three experiments each change one variable around one shared default (`configs/default.toml`), on the same 100 seeds:
+Three experiments each change one variable around one shared default (`configs/default.toml`), on the same 500 seeds:
 
 - **E1 Kalshi rules:** fee-free order book vs Kalshi's taker fee.
 - **E2 Information spread:** share of fake clues (disinformation) on a Holme-Kim network.
@@ -71,9 +71,9 @@ Other files: `configs/` (frozen defaults with a note per setting, small demo lev
 Each script writes one row per run to `results/<name>.csv` and the git commit, seeds, and full configurations to `results/<name>.json`, then prints each prediction against the data. Add `summary` to reprint from the saved results without rerunning.
 
 ```sh
-uv run python experiments/e1_rules.py           # E1, 2 configs x 100 seeds
-uv run python experiments/e2_information.py     # E2, 5 disinformation ratios x 100 seeds
-uv run python experiments/e3_manipulation.py    # E3, twin vs pump vs spoof x 100 seeds
+uv run python experiments/e1_rules.py           # E1, 2 configs x 500 seeds
+uv run python experiments/e2_information.py     # E2, 5 disinformation ratios x 500 seeds
+uv run python experiments/e3_manipulation.py    # E3, twin vs pump vs spoof x 500 seeds
 uv run python experiments/figures.py            # redraw results/figures/ from the CSVs
 ```
 

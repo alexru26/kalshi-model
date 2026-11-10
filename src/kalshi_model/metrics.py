@@ -10,8 +10,10 @@ price move toward the clue (up for a YES clue, down for a NO clue) from the step
 before its release, at each lag in `RESPONSE_LAGS`. A run's response is the mean over
 its clues. The price can still stay short of `P*` (underconfident, calibration slope
 1.10-1.18), so the gap to the new `P*` rarely halves; the half-life is instead the
-lag at which the mean move reaches half its size at the window's end (`half_life`,
-computed on the mean curve over seeds).
+lag at which the mean move reaches half its size at the window's end (`half_life`).
+Each run records the half-life of its own mean curve (`news_half_life`), so its spread
+over seeds can be shown; the experiments also report the half-life of the mean curve
+over seeds, which is less noisy.
 
 E3 adds `manipulation_metrics`, which compares a manipulated run with its honest twin
 on the same seed.
@@ -132,6 +134,7 @@ def _news_response(model: MarketModel) -> dict[str, float]:
     responses = np.array([e["response"] for e in events]).reshape(len(events), len(RESPONSE_LAGS))
     mean = responses.mean(axis=0) if events else np.full(len(RESPONSE_LAGS), math.nan)
     row |= {response_column(lag): float(v) for lag, v in zip(RESPONSE_LAGS, mean, strict=True)}
+    row["news_half_life"] = half_life(mean) if events else math.nan
     row["p_star_jump"] = _mean([e["p_star_jump"] for e in events])
     near = [NEAR_FIFTY[0] <= e["before"] <= NEAR_FIFTY[1] for e in events]
     for name, keep in (("near50", True), ("far", False)):

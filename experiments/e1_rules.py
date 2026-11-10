@@ -45,6 +45,7 @@ def per_config_table(results: dict) -> None:
         ("aggregation_loss", "final (price - P*)^2"),
         (END, f"news move by lag {NEWS_WINDOW} (c)"),
         ("p_star_jump", "P* jump per news (c)"),
+        ("news_half_life", "news half-life, per run (steps)"),
         ("volume", "volume (contracts)"),
         ("no_trade_share", "no-trade steps"),
         ("spread", "median spread (c)"),
@@ -134,7 +135,7 @@ def predictions(results: dict) -> None:
     print(f"  none - top:   {fmt(*mean_ci(gaps))}")
 
     print("\nReported: paired differences (Kalshi - CLOB)")
-    for metric in ("error", "brier", "aggregation_loss", "volume"):
+    for metric in ("error", "brier", "aggregation_loss", "volume", "news_half_life"):
         print(f"  {metric:18s} {diff(metric, 'clob', 'kalshi'):>20s}")
 
 

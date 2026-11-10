@@ -25,8 +25,8 @@ from kalshi_model.metrics import RESPONSE_LAGS, half_life, response_column, run_
 from kalshi_model.model import MarketModel
 
 RESULTS_DIR = Path(__file__).resolve().parents[2] / "results"
-SEEDS = range(20000, 20100)
-"""The experiment seeds: 100, none used by calibration or earlier checks."""
+SEEDS = range(20000, 20500)
+"""The experiment seeds: 500, none used by calibration or earlier checks."""
 Z95 = 1.96
 BOOTSTRAP_SAMPLES = 2000
 BOOTSTRAP_SEED = 8
