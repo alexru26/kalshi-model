@@ -210,6 +210,7 @@ def e2_distortion(results: Results) -> Figure:
     ratios = _ratio_labels(results)
     clean = results[ratios[0][1]]
     fakes = [Config(disinfo_ratio=ratio).n_fakes for ratio, _ in ratios[1:]]
+    n_real = Config().n_clues_total - Config().n_private
     axes = fig.subplots(1, 2, sharey=True)
     for ax, (metric, title) in zip(
         axes,
@@ -238,7 +239,7 @@ def e2_distortion(results: Results) -> Figure:
         )
         _zero_line(ax)
         ax.set_xticks(fakes, [str(n) for n in fakes])
-        ax.set_xlabel("Fake clues (against 20 real news clues)", color=INK)
+        ax.set_xlabel(f"Fake clues (against {n_real} real news clues)", color=INK)
         _panel_title(ax, title)
     axes[0].set_ylabel("Distortion toward the fakes (c)", color=INK)
     return fig
