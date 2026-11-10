@@ -121,6 +121,7 @@ def paired(results: dict, metric: str, a: str, b: str) -> tuple[float, float]:
 
 
 def values(results: dict, label: str, metric: str) -> np.ndarray:
+    """One configuration's `metric` on every seed, in seed order."""
     return np.array([row[metric] for _, row in sorted(results[label].items())])
 
 

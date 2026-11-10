@@ -186,6 +186,13 @@ class MarketModel(mesa.Model):
         fixed_traits: Mapping[str, object] | None = None,
         debug: bool = False,
     ) -> None:
+        """Build one run on `seed`: the world, the population, the market, the network.
+
+        Setup order: random streams, world (outcome and clues), traits, traders, the
+        market (LMSR, or order book plus market maker), private clues dealt, the
+        manipulator if any, then the network and the fake-clue schedule. Each part draws
+        only from its own stream, so this order does not couple their draws.
+        """
         if traits is not None and fixed_traits:
             raise ValueError("pass either traits or fixed_traits, not both")
         super().__init__(rng=seed)
@@ -203,6 +210,7 @@ class MarketModel(mesa.Model):
         self._clue_rngs: dict[int, np.random.Generator] = {}
         self._disinfo_rng = streams["disinformation"]
 
+        # The world and the trader population.
         self.world = make_world(config, streams["world"])
         if traits is None:
             traits = draw_traits(config, streams["traits"], fixed_traits)
@@ -211,6 +219,9 @@ class MarketModel(mesa.Model):
             raise ValueError("traits must have one entry per agent (config.n_agents)")
 
         self.traders = [Trader(self, i) for i in range(config.n_agents)]
+
+        # The market. In the CLOB each trader's cash and position live in its order-book
+        # account, so the book is the single ledger.
         self.lmsr: LMSR | None = None
         self.book: OrderBook | None = None
         self.market_maker: MarketMaker | None = None
@@ -221,6 +232,8 @@ class MarketModel(mesa.Model):
             for trader in self.traders:
                 trader.account = self.book.open_account(trader.index, trader.initial_cash)
             self.market_maker = MarketMaker(self.book, config)
+
+        # Private clues: dealt once at setup, never spread.
         hands = deal_private_clues(self.traits.n_clues, config.n_private, streams["deal"])
         for trader, hand in zip(self.traders, hands, strict=True):
             for clue_id in hand.tolist():
@@ -233,6 +246,7 @@ class MarketModel(mesa.Model):
                 MANIPULATOR, self.manipulator.initial_cash
             )
         holders = self.traders if self.manipulator is None else [*self.traders, self.manipulator]
+        # Every real clue anyone holds: the input to P*. News is added as it is released.
         self._known_real: set[int] = set().union(*(t.known for t in holders))
 
         # Information layer: the network, and fake clues numbered after the real ones.
@@ -291,16 +305,32 @@ class MarketModel(mesa.Model):
 
     @property
     def p_star(self) -> float:
-        """The benchmark: the posterior from every real clue some agent knows."""
+        """The benchmark: the posterior from every real clue some agent knows.
+
+        It is what a trader holding all the market's real information would believe, so
+        a perfectly aggregating market would price at P*. Fake clues are left out: they
+        carry no information about the outcome.
+        """
         return self.world.p_star(self._known_real)
 
     def step(self) -> None:
+        """Advance the market one step, then settle it if this was the last step.
+
+        1. Release the news and fake clues due this step to random seed agents.
+        2. Spread every clue in circulation one hop along the network.
+        3. The market maker requotes (CLOB only).
+        4. `turns_per_step` sampled agents take a turn in order; in E3 the manipulator
+           takes one too, in a random slot among them.
+        5. Record the step's data; at step `n_steps`, settle.
+        """
         if self.settled:
             raise RuntimeError("the market has already settled")
         t = self.steps
         self._release_news(t)
         self._spread(t)
 
+        # Draw every turn's randomness up front, the same number of draws in every
+        # configuration, so the turn sequence on a seed never depends on the market rules.
         n_turns = self.config.turns_per_step
         order = self._turns_rng.choice(
             self.config.n_agents, size=n_turns, replace=False, p=self._turn_weights
@@ -325,6 +355,7 @@ class MarketModel(mesa.Model):
                     self.manipulator.take_turn(self.book, manip_z, manip_u, t)
                 self.traders[index].take_turn_clob(self.book, z, u, t)
                 self.traders[index].finish_turn()
+            # Slot n_turns means the manipulator goes after every agent.
             if slot == n_turns:
                 self.manipulator.take_turn(self.book, manip_z, manip_u, t)
             self.volume = sum(f.qty for f in self.book.fills[fills_before:])
@@ -401,17 +432,22 @@ class MarketModel(mesa.Model):
                     trader.spreading.discard(clue_id)
 
     def _clue_rng(self, clue_id: int) -> np.random.Generator:
+        """The generator for one clue's spreading, created on first use from the run's
+        spread seed and the clue id."""
         if clue_id not in self._clue_rngs:
             self._clue_rngs[clue_id] = np.random.default_rng([self._spread_seed, clue_id])
         return self._clue_rngs[clue_id]
 
     def _count_knower(self, clue_id: int, index: int, t: int) -> None:
+        """Record that agent `index` learned a news or fake clue at step t, and the step
+        the clue first reached half the agents."""
         learned = self.learned_step.setdefault(clue_id, {})
         learned[index] = t
         if clue_id not in self.half_reach_step and 2 * len(learned) >= len(self.traders):
             self.half_reach_step[clue_id] = t
 
     def _settle(self) -> None:
+        """Close the market: freeze the price and closing positions, then pay out on Y."""
         self._closing_price = self.price
         self.closing_positions = [t.position for t in self.traders]
         if self.market_maker is not None:
@@ -429,6 +465,8 @@ class MarketModel(mesa.Model):
         self.running = False
 
     def _total_cash(self) -> int:
+        """All money in the run: every account's cash plus fees collected (CLOB), or
+        traders' cash plus the LMSR's (AMM). Constant over a correct run."""
         if self.lmsr is None:
             return sum(a.cash for a in self.book.accounts.values()) + self.book.fees_collected
         return sum(t.cash for t in self.traders) + self.lmsr.cash

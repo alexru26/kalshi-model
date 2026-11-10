@@ -104,6 +104,12 @@ class Manipulator(Trader):
         return int(rng.integers(n_turns + 1)), float(rng.standard_normal()), float(rng.random())
 
     def take_turn(self, book: OrderBook, z: float, u: float, step: int) -> None:
+        """One turn: advance the phase machine, then act on this turn's phase.
+
+        HONEST plays the honest rules (`take_turn_clob`); PUMP takes offers up to the
+        pump target; HOLD does nothing; DUMP sells back what the pump bought into bids
+        no lower than the start price; SPOOF re-pegs the fake bid and real offer.
+        """
         phase = self._advance(book, step)
         self.phases[step] = phase
         config = self.model.config
@@ -120,10 +126,17 @@ class Manipulator(Trader):
             self._spoof(book)
 
     def _advance(self, book: OrderBook, step: int) -> str:
-        """Move through the strategy's phases; return this turn's phase."""
+        """Move through the strategy's phases; return this turn's phase.
+
+        pump: HONEST -> PUMP -> HOLD -> DUMP -> HONEST.
+        spoof: HONEST -> SPOOF -> HONEST.
+        The twin, and every strategy before `manip_start`, stays HONEST. The layer runs
+        once: after it returns to HONEST it never starts again.
+        """
         config = self.model.config
         if self.strategy == "twin" or step < config.manip_start:
             return HONEST
+        # First layer turn: clear honest orders and record the price to manipulate from.
         if self._phase == HONEST and self.start_price is None:
             book.cancel_all(OWNER)
             reference = book.reference_price(config.spread_cap)
@@ -141,6 +154,7 @@ class Manipulator(Trader):
                 self._enter(HOLD, step)
         elif self._phase == HOLD and elapsed >= config.pump_hold:
             self._enter(DUMP, step)
+        # The dump ends once the pump's contracts are sold or its time runs out.
         if self._phase == DUMP and (
             self.position <= self._pump_base or step - self._phase_began >= config.pump_max_steps
         ):
@@ -151,6 +165,7 @@ class Manipulator(Trader):
         return self._phase
 
     def _enter(self, phase: str, step: int) -> None:
+        """Switch to `phase`, starting its clock at `step`."""
         self._phase = phase
         self._phase_began = step
 
@@ -159,9 +174,11 @@ class Manipulator(Trader):
         ask (it keeps its place in the queue while it is still there)."""
         config = self.model.config
         orders = book.open_orders(OWNER)
+        # Pull the old fake bid first, so the best bid below is the other traders'.
         for order in orders:
             if order.side == BUY:
                 book.cancel(order.order_id)
+        # Replace the real offer only if it filled or is no longer the best ask.
         offers = [o for o in orders if o.side == SELL]
         if not (offers and book.best_ask == offers[0].price):
             for order in offers:

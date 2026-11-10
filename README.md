@@ -16,7 +16,7 @@ Requires [uv](https://docs.astral.sh/uv/).
 
 ```sh
 uv sync                                       # install
-uv run pytest                                 # 334 tests
+uv run pytest                                 # 723 tests
 uv run ruff check && uv run ruff format --check
 uv run solara run kalshi_model.gui            # live GUI at http://localhost:8765
 uv run python experiments/plot_run.py 20000   # chart one run (seed 20000) to figures/
@@ -39,11 +39,11 @@ clues, P*   spreading                     priority, fees.py
                              Trader (agents.py)  +  Manipulator (manipulator.py, E3)
 ```
 
-Each step (`MarketModel.step`, `src/kalshi_model/model.py:297`):
+Each step (`MarketModel.step`, `src/kalshi_model/model.py:316`):
 
-1. Release scheduled news and fake clues to random seed agents (`_release_news`, line 352).
-2. Spread every clue one hop along the network (`_spread`, line 370).
-3. The market maker cancels and requotes around a moving price estimate (`market_maker.py:52`).
+1. Release scheduled news and fake clues to random seed agents (`_release_news`, line 383).
+2. Spread every clue one hop along the network (`_spread`, line 401).
+3. The market maker cancels and requotes around a moving price estimate (`market_maker.py:58`).
 4. 20 agents, sampled each step, take a turn: form a belief, cancel stale orders, take any quote with enough edge after fees, otherwise maybe post a resting order sized by fractional Kelly. In E3 the manipulator also acts in a random slot.
 5. Record the step. At the last step the market settles.
 
@@ -53,11 +53,11 @@ Conventions: money is integer cents, positions are signed YES counts, every acco
 
 | File | What to look at |
 | --- | --- |
-| `src/kalshi_model/model.py` | `MarketModel`: setup (180), the scored price (273), `P*` (293), the step loop (297), invariants (436) |
-| `src/kalshi_model/agents.py` | Trader decision rules: belief in log-odds (`belief_log_odds`, 36), probability weighting (65), Kelly sizing (70), one order-book turn (`take_turn_clob`, 246) |
+| `src/kalshi_model/model.py` | `MarketModel`: setup (180), the scored price (287), `P*` (307), the step loop (316), invariants (474) |
+| `src/kalshi_model/agents.py` | Trader decision rules: belief in log-odds (`belief_log_odds`, 37), probability weighting (71), Kelly sizing (80), one order-book turn (`take_turn_clob`, 260) |
 | `src/kalshi_model/fees.py` | Kalshi fee `ceil(0.07 x C x P x (1 - P))` in exact integer arithmetic |
-| `src/kalshi_model/world.py` | True outcome, clues, news schedule, and the benchmark `P*` (`p_star`, 102) |
-| `src/kalshi_model/manipulator.py` | E3 strategies: phase machine (`_advance`, 122), pump and dump (`take_turn`, 106), spoofing (`_spoof`, 157) |
+| `src/kalshi_model/world.py` | True outcome, clues, news schedule, and the benchmark `P*` (`p_star`, 103) |
+| `src/kalshi_model/manipulator.py` | E3 strategies: phase machine (`_advance`, 128), pump and dump (`take_turn`, 106), spoofing (`_spoof`, 172) |
 | `src/kalshi_model/network.py` | Holme-Kim social network and agent placement |
 | `src/kalshi_model/traits.py` | Trait population: drawn informedness and cash, linked by a copula |
 | `src/kalshi_model/experiment.py` | Runs configurations on shared seeds; paired differences with 95% intervals |

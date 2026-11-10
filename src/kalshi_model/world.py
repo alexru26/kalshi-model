@@ -30,6 +30,7 @@ class World:
 
     @property
     def n_clues(self) -> int:
+        """M: the number of real clues, private and news."""
         return len(self.points_yes)
 
     def news_released_by(self, step: int) -> np.ndarray:
@@ -100,7 +101,11 @@ def clue_log_odds(clue_accuracy: float) -> float:
 
 
 def p_star(points_yes: np.ndarray, known_clues: Iterable[int], clue_accuracy: float) -> float:
-    """logit(P*) = (# YES - # NO known clues) x ln(q / (1 - q)), from a fair-coin prior."""
+    """logit(P*) = (# YES - # NO known clues) x ln(q / (1 - q)), from a fair-coin prior.
+
+    Exact Bayes: clues are independent given Y and each is right with chance q, so each
+    adds or subtracts the same log-likelihood ratio. Only the net count matters.
+    """
     ids = np.unique(np.fromiter(known_clues, dtype=np.int64))
     if ids.size and (ids[0] < 0 or ids[-1] >= len(points_yes)):
         raise ValueError("known_clues contains an id outside the clue list")
