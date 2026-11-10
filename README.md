@@ -16,7 +16,7 @@ Requires [uv](https://docs.astral.sh/uv/).
 
 ```sh
 uv sync                                       # install
-uv run pytest                                 # 723 tests
+uv run pytest                                 # 727 tests
 uv run ruff check && uv run ruff format --check
 uv run solara run kalshi_model.gui            # live GUI at http://localhost:8765
 uv run python experiments/plot_run.py 20000   # chart one run (seed 20000) to figures/
@@ -64,7 +64,7 @@ Conventions: money is integer cents, positions are signed YES counts, every acco
 | `src/kalshi_model/config.py` | `Config`: every parameter, validated, defaults read from `configs/default.toml` |
 | `experiments/e1_rules.py`, `e2_information.py`, `e3_manipulation.py` | The three experiments; each prints its written predictions against the data |
 
-Other files: `configs/` (frozen defaults with a note per setting, small demo levels, test fixtures), `data/` (Kalshi data fetcher and the saved calibration targets), and `results/` (saved experiment CSVs, run metadata, and figures).
+`PLAN_ANALYSIS.md` is the analysis plan: the data, what each analysis looks for, and the figures and tables planned for the report. Other files: `configs/` (frozen defaults with a note per setting, small demo levels, test fixtures), `data/` (Kalshi data fetcher and the saved calibration targets), and `results/` (saved experiment CSVs, run metadata, and figures).
 
 ## Running the experiments
 

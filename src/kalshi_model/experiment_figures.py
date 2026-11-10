@@ -26,6 +26,7 @@ from pathlib import Path
 
 import numpy as np
 from matplotlib.figure import Figure
+from matplotlib.ticker import StrMethodFormatter
 
 from kalshi_model.config import Config
 from kalshi_model.experiment import RESULTS_DIR, load, mean_ci
@@ -70,7 +71,9 @@ def _paired(a: list[dict], b: list[dict], metric: Metric) -> tuple[float, float]
 
 
 def _fmt(value: float) -> str:
-    return f"{value:,.2f}" if abs(value) < 10 else f"{value:,.0f}"
+    if abs(value) < 10:
+        return f"{value:,.2f}"
+    return f"{value:,.1f}" if abs(value) < 100 else f"{value:,.0f}"
 
 
 def _violins(
@@ -99,6 +102,8 @@ def _violins(
     ax.errorbar(
         positions, means, yerr=[h for _, h in estimates], fmt="none", ecolor=INK, lw=2, zorder=3
     )
+    if max(abs(v) for sample in samples for v in sample) >= 1000:
+        ax.yaxis.set_major_formatter(StrMethodFormatter("{x:,.0f}"))
     if label_means:
         for x, mean in zip(positions, means, strict=True):
             ax.annotate(
@@ -221,10 +226,11 @@ def e2_distortion(results: Results) -> Figure:
         slope = float(np.dot(fakes, means) / np.dot(fakes, fakes))
         x = np.array([0, max(fakes)])
         ax.plot(x, slope * x, color=MUTED, linewidth=1, linestyle="--", zorder=2)
+        middle = (fakes[-2] + fakes[-1]) / 2  # between the violins, clear of both
         ax.annotate(
             f"{slope:.2f}c per fake",
-            (x[-1], slope * x[-1]),
-            xytext=(-6, 8),
+            (middle, slope * middle),
+            xytext=(-6, 6),
             textcoords="offset points",
             ha="right",
             fontsize=9,
@@ -244,11 +250,16 @@ def e2_degree(results: Results) -> Figure:
     fig = _figure(10, 4.4, "Network Position and News")
     rows = _rows(results, _ratio_labels(results)[0][1])
     names = ["Best-connected quarter", "Least-connected quarter"]
-    for ax, (top, bottom, title) in zip(
+    for ax, (top, bottom, title, digits) in zip(
         fig.subplots(1, 2),
         (
-            ("learn_delay_top_degree", "learn_delay_bottom_degree", "Steps to learn a news clue"),
-            ("pnl_top_degree_at_p_star", "pnl_bottom_degree_at_p_star", "P&L ($ per agent)"),
+            (
+                "learn_delay_top_degree",
+                "learn_delay_bottom_degree",
+                "Steps to learn a news clue",
+                2,
+            ),
+            ("pnl_top_degree_at_p_star", "pnl_bottom_degree_at_p_star", "P&L ($ per agent)", 1),
         ),
         strict=True,
     ):
@@ -258,7 +269,7 @@ def e2_degree(results: Results) -> Figure:
         ax.set_xlim(-0.6, 1.6)
         _panel_title(ax, title)
         mean, half = mean_ci([r[top] - r[bottom] for r in rows])
-        _note(ax, f"Best - least: {mean:+,.1f} ± {half:,.1f}")
+        _note(ax, f"Best - least: {mean:+,.{digits}f} ± {half:,.{digits}f}")
     return fig
 
 
@@ -278,6 +289,7 @@ def e3_distortion(results: Results) -> Figure:
     # Linear up to 10 steps, then log: the pump acts within the first hundred steps.
     ax.set_xscale("symlog", linthresh=10, linscale=0.6)
     ax.set_xticks([0, 10, 100, 1000], ["0", "10", "100", "1,000"])
+    ax.set_xlim(0, lags[-1])
     spoof_end = Config().spoof_steps
     ax.axvline(spoof_end, color=MUTED, linewidth=1, linestyle="--")
     ax.annotate(
@@ -291,7 +303,7 @@ def e3_distortion(results: Results) -> Figure:
     )
     ax.set_xlabel("Steps after the manipulation starts", color=INK)
     ax.set_ylabel("Price minus the honest twin's (c)", color=INK)
-    ax.legend(frameon=False, fontsize=9, loc="center left")
+    ax.legend(frameon=False, fontsize=9, loc="center right")
     return fig
 
 
