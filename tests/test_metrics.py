@@ -70,6 +70,19 @@ def test_news_events_measure_the_signed_move_from_the_step_before_release(kalshi
         assert event["p_star_jump"] > 0  # a clue always moves P* its own way
 
 
+def test_run_half_life_is_the_half_life_of_its_mean_news_response(kalshi_run):
+    curve = np.mean([e["response"] for e in news_events(kalshi_run)], axis=0)
+    row = run_metrics(kalshi_run)
+    assert row["news_half_life"] == pytest.approx(half_life(curve))
+
+
+def test_run_without_a_full_news_window_has_no_half_life():
+    # 20 news clues over 25 steps: no 300-step window fits.
+    row = run_metrics(run(Config(n_steps=25), 4))
+    assert row["n_news"] == 0
+    assert math.isnan(row["news_half_life"])
+
+
 def test_fakes_are_not_news_events():
     clean = news_events(run(Config(n_steps=800), 4))
     dirty = news_events(run(Config(n_steps=800, disinfo_ratio=0.2), 4))

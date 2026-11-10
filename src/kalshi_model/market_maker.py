@@ -30,6 +30,8 @@ OWNER = "market_maker"
 
 
 class MarketMaker:
+    """The market maker: two-sided quotes from its own account in `book`."""
+
     def __init__(self, book: OrderBook, config: Config) -> None:
         self.book = book
         self.config = config
@@ -37,14 +39,18 @@ class MarketMaker:
         self.estimate = 50.0
         """Moving price estimate, in cents."""
         self.extra_half_spread = 0.0
+        """Widening from recent markout losses, in cents, on top of `mm_half_spread`."""
         self.bid: int | None = None
+        """Price of the current bid, or None if it is not bidding."""
         self.ask: int | None = None
+        """Price of the current offer, or None if it is not offering."""
         self._fills_seen = len(book.fills)
         self.closing_position: int | None = None
         """Inventory when the market closed, just before settlement."""
 
     @property
     def half_spread(self) -> float:
+        """The base half-spread plus loss widening, capped at `mm_max_half_spread`."""
         return min(
             self.config.mm_max_half_spread, self.config.mm_half_spread + self.extra_half_spread
         )
@@ -57,6 +63,7 @@ class MarketMaker:
         self._learn()
         cfg = self.config
         inventory = self.account.position
+        # Skew: each contract of inventory shifts both quotes `mm_skew` cents against it.
         center = min(99.0, max(1.0, self.estimate - cfg.mm_skew * inventory))
         h = self.half_spread
         bid = math.floor(center - h)
@@ -74,6 +81,13 @@ class MarketMaker:
         self.ask = self._quote(SELL, ask, cfg.mm_max_inventory + inventory)
 
     def _learn(self) -> None:
+        """Update the price estimate and the loss widening from fills since last time.
+
+        Every trade moves the estimate `mm_alpha` of the way to its price. Then each of
+        the market maker's own fills is marked to the new estimate: buying above it or
+        selling below it is a loss. The old widening decays by `mm_decay`, and the
+        loss per quoted contract (`/ mm_size`) times `mm_widen` is added to it.
+        """
         new_fills = self.book.fills[self._fills_seen :]
         self._fills_seen = len(self.book.fills)
         alpha = self.config.mm_alpha
@@ -83,6 +97,7 @@ class MarketMaker:
         for fill in new_fills:
             if fill.maker != OWNER:
                 continue
+            # As maker, it bought when the taker sold.
             bought = fill.taker_side == SELL
             markout = (
                 self.estimate - fill.price if bought else fill.price - self.estimate

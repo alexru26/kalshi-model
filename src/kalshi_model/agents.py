@@ -30,6 +30,7 @@ _FLOOR_TOLERANCE = 1e-9
 
 
 def logit(p: float) -> float:
+    """Log-odds of a probability in (0, 1): ln(p / (1 - p)), the inverse of `sigmoid`."""
     return math.log(p / (1 - p))
 
 
@@ -53,6 +54,11 @@ def belief_log_odds(
     `w_m = market_trust / (market_trust + n_eff + eps)` with `n_eff = n_own + w_h n_heard`
     discounts it by the share of the market's information the agent thinks it holds,
     and `w_m = 0` when there is no reference price.
+
+    Arguments: `l_own` and `l_heard` are the summed log-odds of own and heard clues, and
+    `n_own` and `n_heard` their counts; `reference_price` is the market's probability
+    (None if nothing is quoted or traded); `imbalance` is book imbalance in [-1, 1];
+    `z` is this turn's standard normal draw, scaled by `noise`.
     """
     market_term = 0.0
     if reference_price is not None:
@@ -63,7 +69,11 @@ def belief_log_odds(
 
 
 def perceived_yes(belief_log_odds_value: float, g: float) -> float:
-    """Symmetric linear-in-log-odds weighting: logit(p_yes) = g logit(b)."""
+    """Symmetric linear-in-log-odds weighting: logit(p_yes) = g logit(b).
+
+    With g < 1 the agent pulls its belief toward 50%, so it overweights longshots on
+    either side; g = 1 leaves the belief unchanged.
+    """
     return sigmoid(g * belief_log_odds_value)
 
 
@@ -72,6 +82,9 @@ def kelly_contracts(p_win: float, price: float, kelly_frac: float, wealth_cents:
 
     Full Kelly stakes `f = (p_win - price) / (1 - price)` of wealth; the agent stakes
     `kelly_frac x f x wealth`, buys whole contracts, and takes at least one.
+
+    For a NO bet, pass `1 - p_yes` and the NO price. `wealth_cents` is the agent's cash.
+    The one-contract floor keeps agents with small stakes in the market.
     """
     if not p_win > price:
         return 0
@@ -182,7 +195,8 @@ class Trader(mesa.Agent):
         self.pending.clear()
 
     def belief(self, reference_price: float | None, imbalance: float, z: float) -> float:
-        """This turn's belief, in log-odds."""
+        """This turn's belief, in log-odds: `belief_log_odds` with the agent's clues and
+        traits, every clue weighted by ln(q / (1 - q))."""
         weight = clue_log_odds(self.model.world.clue_accuracy)
         return belief_log_odds(
             l_own=self.own_net * weight,
@@ -251,22 +265,36 @@ class Trader(mesa.Agent):
         that beats its value by more than `min_edge` after the taker fee. If it took
         nothing, with probability `patience` (`u < patience`) it posts a resting order
         priced `min_edge` inside its value, sized to the gap to its Kelly target.
+
+        `z` is the belief noise draw, `u` the patience draw, and `step` the current step
+        (used to time how long an order has been stale).
         """
         config = self.model.config
         reference = book.reference_price(config.spread_cap)
         imbalance = book.imbalance(config.depth_window)
+        # The agent's value of one YES contract, in cents.
         value = 100 * perceived_yes(self.belief(reference, imbalance, z), self.g)
         self._tend_orders(book, value, step)
         taken = self._take(book, value)
+        # Post only if it did not take: a taker already moved toward its target.
         if taken == 0 and u < self.patience:
             self._post(book, value, reference)
         return taken
 
     def _fee_per_contract(self, price: int, rate_bp: int) -> float:
+        """The exact (unrounded) fee of one contract at `price`, in cents.
+
+        Agents judge edge with the exact fee, not the rounded-up one: on a multi-contract
+        order Kalshi's rounding is spread over the whole order.
+        """
         return exact_fee(1, price, rate_bp) / MICRO_PER_CENT
 
     def _tend_orders(self, book: OrderBook, value: float, step: int) -> None:
-        """Cancel orders whose edge fell below `min_edge` or that sat stale too long."""
+        """Cancel orders whose edge fell below `min_edge` or that sat stale too long.
+
+        An order is stale while it is at least `stale_ticks` cents behind the best quote
+        on its side; after `stale_steps` steps stale it is cancelled.
+        """
         config = self.model.config
         open_ids = set()
         for order in book.open_orders(self.owner):
@@ -292,9 +320,15 @@ class Trader(mesa.Agent):
             del self._stale_since[order_id]
 
     def _take(self, book: OrderBook, value: float) -> int:
-        """Buy or sell at once (immediate-or-cancel) if the best quote beats `min_edge`."""
+        """Buy or sell at once (immediate-or-cancel) if the best quote beats `min_edge`.
+
+        The order's size is the gap to the Kelly target, costed at the best quote plus
+        the taker fee; its limit is the worst price still worth `min_edge`, so one order
+        can walk several price levels. Returns contracts taken (bought > 0, sold < 0).
+        """
         rate = book.taker_fee_bp
         best_ask, best_bid = book.best_ask, book.best_bid
+        # Buy YES: the best offer is below value by more than min_edge after the fee.
         if best_ask is not None and value - best_ask - self._fee_per_contract(best_ask, rate) > (
             self.min_edge
         ):
@@ -308,6 +342,7 @@ class Trader(mesa.Agent):
                 if value - x - self._fee_per_contract(x, rate) > self.min_edge
             )
             return self._submit_largest(book, BUY, limit, wanted, ioc=True)
+        # Sell YES (buy NO): the best bid is above value by more than min_edge after the fee.
         if best_bid is not None and best_bid - value - self._fee_per_contract(best_bid, rate) > (
             self.min_edge
         ):
@@ -323,13 +358,19 @@ class Trader(mesa.Agent):
         return 0
 
     def _post(self, book: OrderBook, value: float, reference: float | None) -> None:
-        """Rest an order `min_edge` (plus maker fee) inside value, never crossing the book."""
+        """Rest an order `min_edge` (plus maker fee) inside value, never crossing the book.
+
+        The agent bids if it values YES at or above the market price (50c if there is
+        none yet) and offers otherwise. The size is the gap to its Kelly target, less
+        what it already has resting on that side.
+        """
         rate = book.maker_fee_bp
         buy = value >= (50.0 if reference is None else 100 * reference)
         resting = sum(
             o.remaining for o in book.open_orders(self.owner) if o.side == (BUY if buy else SELL)
         )
         if buy:
+            # Highest bid that still leaves min_edge after the maker fee, below the best ask.
             price = math.floor(value - self.min_edge)
             while (
                 price >= 1 and value - price - self._fee_per_contract(price, rate) < self.min_edge
@@ -343,6 +384,7 @@ class Trader(mesa.Agent):
             target = kelly_contracts(value / 100, cost, self.kelly_frac, self.cash)
             self._submit_largest(book, BUY, price, target - self.position - resting, ioc=False)
         else:
+            # Lowest offer that still leaves min_edge after the maker fee, above the best bid.
             price = math.ceil(value + self.min_edge)
             while (
                 price <= 99 and price - value - self._fee_per_contract(price, rate) < self.min_edge
@@ -359,7 +401,11 @@ class Trader(mesa.Agent):
     def _submit_largest(
         self, book: OrderBook, side: str, price: int, wanted: int, *, ioc: bool
     ) -> int:
-        """Submit the largest affordable order up to `wanted`; return contracts filled."""
+        """Submit the largest affordable order up to `wanted`; return contracts filled.
+
+        Binary search on size with `book.can_submit`, so the order never breaks the
+        collateral rule and is never rejected.
+        """
         lo, hi = 0, max(0, wanted)
         while lo < hi:
             mid = (lo + hi + 1) // 2

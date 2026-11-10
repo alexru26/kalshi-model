@@ -200,6 +200,8 @@ class Config:
         return round(self.disinfo_ratio * (self.n_clues_total - self.n_private))
 
     def __post_init__(self) -> None:
+        """Raise ValueError for a wrong type, an out-of-range value, or settings that
+        contradict each other, so a bad configuration fails before the run starts."""
         for f in fields(self):
             value = getattr(self, f.name)
             if f.type is int and not _is_int(value):

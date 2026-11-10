@@ -46,11 +46,15 @@ class InvariantError(AssertionError):
 
 @dataclass
 class Account:
+    """One trader's money in the book: cash and position, plus the collateral its open
+    orders hold (`bid_reserve` against cash, `ask_reserve` against YES-wins wealth)."""
+
     cash: int
     position: int = 0
     bid_reserve: int = 0
     ask_reserve: int = 0
     deposited: int = 0
+    """Starting cash, for the conservation check."""
 
     @property
     def free_cash(self) -> int:
@@ -65,6 +69,8 @@ class Account:
 
 @dataclass
 class Order:
+    """A limit order; while it rests, `remaining` is its unfilled size."""
+
     order_id: int
     owner: Hashable
     side: str
@@ -80,6 +86,9 @@ class Order:
 
 @dataclass(frozen=True)
 class Fill:
+    """One trade between an incoming (taker) and a resting (maker) order, at the maker's
+    price. `taker_side` is the taker's side; the maker was on the other."""
+
     price: int
     qty: int
     taker: Hashable
@@ -93,6 +102,9 @@ class Fill:
 
 @dataclass
 class Submission:
+    """What `OrderBook.submit` did: the fills, any self-cancelled orders, and the id of
+    the part left resting."""
+
     order_id: int | None
     """Id of the resting remainder, or None if nothing rests."""
     fills: list[Fill] = field(default_factory=list)
@@ -101,6 +113,10 @@ class Submission:
 
 @dataclass
 class _Plan:
+    """An order's checked outcome, worked out before anything changes: the resting
+    orders it fills (and how much of each), its owner's orders it cancels, and what
+    is left over."""
+
     price: int
     qty: int
     matches: list[tuple[Order, int]]
@@ -109,24 +125,36 @@ class _Plan:
 
 
 class OrderBook:
+    """The book for one YES contract, and the ledger of every account that trades in it.
+
+    Orders rest in price levels, each a first-in-first-out queue, which gives price-time
+    priority. Every order is planned and checked in full (`_plan`) before anything
+    changes, so a rejected order leaves the book exactly as it was.
+    """
+
     def __init__(self, taker_fee_bp: int = 0, maker_fee_bp: int = 0) -> None:
         self.taker_fee_bp = index(taker_fee_bp)
         self.maker_fee_bp = index(maker_fee_bp)
         if self.taker_fee_bp < 0 or self.maker_fee_bp < 0:
             raise ValueError("fee rates must be non-negative")
         self._accounts: dict[Hashable, Account] = {}
+        # side -> price -> resting orders at that price, oldest first.
         self._levels: dict[str, dict[int, OrderedDict[int, Order]]] = {BUY: {}, SELL: {}}
         self._orders: dict[int, Order] = {}
         self._by_owner: dict[Hashable, dict[int, Order]] = {}
         self._last_id = 0
         self.fills: list[Fill] = []
+        """Every fill so far, in order."""
         self.fees_collected = 0
+        """Fees charged so far, in cents (they leave the accounts but stay counted)."""
         self.last_price: int | None = None
+        """Price of the last trade, in cents."""
         self.settled = False
 
     # Accounts
 
     def open_account(self, owner: Hashable, cash: int) -> Account:
+        """Open `owner`'s account with `cash` cents deposited and no position."""
         cash = index(cash)
         if owner in self._accounts:
             raise ValueError(f"account {owner!r} already exists")
@@ -161,6 +189,7 @@ class OrderBook:
         rejects the order if any of it would trade at once.
         """
         plan = self._plan(owner, side, price, qty, ioc=ioc, post_only=post_only)
+        # The plan passed every check; now carry it out.
         result = Submission(order_id=None)
         for order in plan.self_cancels:
             self._remove(order)
@@ -202,6 +231,7 @@ class OrderBook:
         return True
 
     def cancel_all(self, owner: Hashable) -> int:
+        """Cancel every open order of `owner`; return how many were cancelled."""
         orders = self.open_orders(owner)
         for order in orders:
             self._remove(order)
@@ -215,6 +245,7 @@ class OrderBook:
         return len(orders)
 
     def open_orders(self, owner: Hashable) -> list[Order]:
+        """`owner`'s resting orders, oldest first."""
         return list(self._by_owner.get(owner, {}).values())
 
     # Market data
@@ -330,6 +361,7 @@ class OrderBook:
             raise ValueError(f"qty must be at least 1, got {qty}")
         account = self._accounts[owner]
 
+        # Walk the opposite side from its best price, in time order within each level.
         opposite = SELL if side == BUY else BUY
         levels = self._levels[opposite]
         crosses = (lambda p: p <= price) if side == BUY else (lambda p: p >= price)
@@ -384,12 +416,16 @@ class OrderBook:
         return qty * risk + future_fee
 
     def _charge(self, order: Order, micro: int) -> int:
+        """Add a fill's exact fee to the order's running total; return the cents now due
+        (Kalshi's per-order fee accumulator)."""
         order.fee_micro += micro
         due = ceil_cents(order.fee_micro) - order.fee_paid
         order.fee_paid += due
         return due
 
     def _execute(self, taker: Order, maker: Order, qty: int) -> Fill:
+        """Trade `qty` at the maker's price: charge fees, shrink the maker's reserve,
+        move cash and contracts, and record the fill."""
         price = maker.price
         taker_fee = self._charge(taker, exact_fee(qty, price, self.taker_fee_bp))
         maker_fee = 0
@@ -434,6 +470,7 @@ class OrderBook:
         return fill
 
     def _rest(self, order: Order) -> None:
+        """Put an order's unfilled part at the back of its price level and hold its reserve."""
         order.reserve = self._reserve_for(order, order.remaining)
         account = self._accounts[order.owner]
         if order.side == BUY:
@@ -445,6 +482,7 @@ class OrderBook:
         self._by_owner.setdefault(order.owner, {})[order.order_id] = order
 
     def _remove(self, order: Order) -> None:
+        """Cancel a resting order: release its reserve and take it out of the book."""
         account = self._accounts[order.owner]
         if order.side == BUY:
             account.bid_reserve -= order.reserve
@@ -454,6 +492,7 @@ class OrderBook:
         self._unlink(order)
 
     def _unlink(self, order: Order) -> None:
+        """Drop an order from its price level and the indexes (reserve already settled)."""
         queue = self._levels[order.side][order.price]
         del queue[order.order_id]
         if not queue:
