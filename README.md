@@ -64,7 +64,7 @@ Conventions: money is integer cents, positions are signed YES counts, every acco
 | `src/kalshi_model/config.py` | `Config`: every parameter, validated, defaults read from `configs/default.toml` |
 | `experiments/e1_rules.py`, `e2_information.py`, `e3_manipulation.py` | The three experiments; each prints its written predictions against the data |
 
-`PLAN_ANALYSIS.md` is the analysis plan: the data, what each analysis looks for, and the figures and tables planned for the report. Other files: `configs/` (frozen defaults with a note per setting, small demo levels, test fixtures), `data/` (Kalshi data fetcher and the saved calibration targets), and `results/` (saved experiment CSVs, run metadata, and figures).
+Other files: `configs/` (frozen defaults with a note per setting, small demo levels, test fixtures), `data/` (Kalshi data fetcher and the saved calibration targets), and `results/` (saved experiment CSVs, run metadata, and figures).
 
 ## Running the experiments
 
